@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>ระบบจัดคิว Admin ประจำวัน - Daily Admin Queue</title>
+  <!-- Google Fonts: Prompt สำหรับภาษาไทย และ Inter สำหรับตัวเลข/ภาษาอังกฤษ -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <!-- FontAwesome สำหรับการใช้ไอคอน -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- ตัวโหลดสถานะสำหรับหน้าเว็บ (Loading Overlay) -->
+  <div id="loading-overlay" class="loading-overlay">
+    <div class="spinner"></div>
+    <p>กำลังเชื่อมต่อ Supabase...</p>
+  </div>
+
+  <div class="app-container">
+    <!-- ส่วนหัว (Header) -->
+    <header class="app-header">
+      <div class="header-logo">
+        <i class="fa-solid fa-users-line logo-icon"></i>
+        <div>
+          <h1>IT4+ Daily Queue</h1>
+          <p>ระบบรับเคสลูกค้าแบบเรียงคิวประจำวัน</p>
+        </div>
+      </div>
+      <div class="sync-indicator" id="sync-status">
+        <span class="dot pulse"></span>
+        <span class="status-text">เชื่อมต่อเรียลไทม์</span>
+      </div>
+    </header>
+
+    <!-- ส่วนเลือก Admin ปัจจุบัน (Current User Selector) -->
+    <section class="section user-selector-section card">
+      <div class="user-select-container">
+        <label for="admin-select"><i class="fa-solid fa-user-gear"></i> ระบุตัวตนผู้ใช้:</label>
+        <div class="select-wrapper">
+          <select id="admin-select">
+            <option value="" disabled selected>-- เลือกชื่อของคุณ --</option>
+            <!-- รายชื่อแอดมินจะถูกโหลดจาก Google Sheet เข้ามาใส่ที่นี่ -->
+          </select>
+        </div>
+      </div>
+      <div class="selected-user-info" id="current-user-info" style="display: none;">
+        <span>สถานะของคุณตอนนี้: </span>
+        <span class="status-badge status-offline" id="my-status-badge">Offline</span>
+      </div>
+    </section>
+
+    <!-- หน้าต่างเตือนสำหรับแอดมินคนแรกเมื่อยังไม่มีใครเช็คอินเข้าระบบ -->
+    <div id="no-admins-warning" class="warning-box" style="display: none;">
+      <i class="fa-solid fa-triangle-exclamation"></i>
+      <div>
+        <h4>ยังไม่มี Admin คนใดเริ่มเข้างาน</h4>
+        <p>กรุณาเลือกชื่อของคุณและกด "ลงชื่อเข้างาน (Check-In)" ด้านล่าง เพื่อเริ่มต้นคิวของวันนี้</p>
+      </div>
+    </div>
+
+    <!-- ส่วนสถานะเด่น (Featured Status Area) -->
+    <div class="featured-grid">
+      <!-- บัตรกำลังรับเคส (Active Card) -->
+      <div class="featured-card card active-card">
+        <div class="card-glow"></div>
+        <div class="card-header">
+          <span class="card-label"><i class="fa-solid fa-headset"></i> สถานะรับเคสอยู่</span>
+          <span class="pulse-indicator">LIVE</span>
+        </div>
+        <div class="card-content" id="active-card-content">
+          <h2 class="admin-name" id="active-admin-name">- ไม่มี -</h2>
+          <div class="timer-display" id="active-timer" style="display: none;">
+            <i class="fa-solid fa-clock"></i> <span id="timer-text">00:00</span>
+          </div>
+          <p class="card-shop-info" id="active-shop-info" style="display: none;">
+            <i class="fa-solid fa-store"></i> <span id="active-shop-text"></span>
+          </p>
+          <p class="card-subtext">กำลังดูแลลูกค้าและแก้ปัญหา</p>
+        </div>
+      </div>
+
+      <!-- บัตรรอรับงานถัดไป (Next in Queue Card) -->
+      <div class="featured-card card next-card">
+        <div class="card-header">
+          <span class="card-label"><i class="fa-solid fa-circle-play"></i> คิวถัดไป (คิวที่ 1)</span>
+        </div>
+        <div class="card-content" id="next-card-content">
+          <h2 class="admin-name" id="next-admin-name">- ว่างเปล่า -</h2>
+          <p class="card-subtext" id="next-admin-sub">กรุณารอสแตนด์บายเมื่อมีเคสใหม่</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- แผงควบคุมคำสั่ง (Admin Control Action Bar) -->
+    <section class="section action-section card" id="action-panel" style="display: none;">
+      <h3 class="section-title"><i class="fa-solid fa-terminal"></i> แผงปุ่มสำหรับ <span id="action-user-name">คุณ</span></h3>
+      <div class="action-buttons-grid">
+        <!-- ปุ่มเช็คอินเข้างาน -->
+        <button id="btn-checkin" class="btn btn-primary" style="display: none;">
+          <i class="fa-solid fa-right-to-bracket"></i> ลงชื่อเข้างาน (Check-In)
+        </button>
+        <!-- ปุ่มเช็คเอาท์ออกงาน -->
+        <button id="btn-checkout" class="btn btn-danger" style="display: none;">
+          <i class="fa-solid fa-right-from-bracket"></i> ลงชื่อออกงาน (Check-Out)
+        </button>
+        <!-- ปุ่มกดรับเคส (สำหรับคิวที่ 1) -->
+        <button id="btn-accept" class="btn btn-success" style="display: none;">
+          <i class="fa-solid fa-circle-check"></i> รับเคสลูกค้า
+        </button>
+        <!-- ปุ่มกดข้ามคิว (สำหรับคิวที่ 1) -->
+        <button id="btn-pass" class="btn btn-warning" style="display: none;">
+          <i class="fa-solid fa-forward"></i> ขอข้ามคิวนี้ (Pass)
+        </button>
+        <!-- ปุ่มกดจบงานคิว (สำหรับคนที่มีสถานะ Active) -->
+        <button id="btn-complete" class="btn btn-info" style="display: none;">
+          <i class="fa-solid fa-circle-stop"></i> จบเคส (Complete Case)
+        </button>
+        <!-- ปุ่มยกเลิกเคส (สำหรับคนที่กดรับเคสผิด) -->
+        <button id="btn-cancel" class="btn btn-danger" style="display: none;">
+          <i class="fa-solid fa-xmark"></i> ยกเลิกเคส (กดผิด)
+        </button>
+      </div>
+    </section>
+
+    <!-- ส่วนรายชื่อ Admin และลำดับคิวทั้งหมด (All Queue List) -->
+    <section class="section queue-list-section card">
+      <h3 class="section-title"><i class="fa-solid fa-list-ol"></i> ลำดับคิวและสถานะแอดมินทั้งหมด</h3>
+      <div class="table-responsive">
+        <table class="queue-table">
+          <thead>
+            <tr>
+              <th style="width: 15%;">คิว</th>
+              <th style="width: 45%;">รายชื่อ</th>
+              <th style="width: 25%;">สถานะ</th>
+              <th style="width: 15%; text-align: center;">วันนี้</th>
+            </tr>
+          </thead>
+          <tbody id="queue-table-body">
+            <tr>
+              <td colspan="4" class="no-data">กำลังดึงข้อมูลคิวล่าสุด...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ส่วนสรุปสถิติจำนวนเคส (Daily Summary Table & Mini Dashboard) -->
+    <section class="section summary-section card">
+      <h3 class="section-title"><i class="fa-solid fa-chart-simple"></i> สรุปผลงานวันนี้ (Daily Case Summary)</h3>
+      <div class="summary-grid" id="summary-cards">
+        <div class="stat-card">
+          <div class="stat-icon icon-blue"><i class="fa-solid fa-comments"></i></div>
+          <div class="stat-info">
+            <span class="stat-num" id="total-cases-today">0</span>
+            <span class="stat-label">เคสทั้งหมดวันนี้</span>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon icon-green"><i class="fa-solid fa-people-group"></i></div>
+          <div class="stat-info">
+            <span class="stat-num" id="total-admins-active">0</span>
+            <span class="stat-label">Admin ที่เข้างาน</span>
+          </div>
+        </div>
+      </div>
+      <div class="stats-list" id="admins-stats-list">
+        <!-- รายการสรุปเคสของแต่ละคนจะถูกแทรกที่นี่ -->
+      </div>
+    </section>
+
+    <!-- ส่วนปุ่มรีเซ็ตระบบโดยผู้ดูแล (Admin Reset Option - มีไว้แก้ปัญหา) -->
+    <footer class="app-footer">
+      <p>IT4+ Service Team &copy; 2026</p>
+      <button id="btn-manual-reset" class="btn-text-only">
+        <i class="fa-solid fa-rotate-left"></i> รีเซ็ตระบบคิวประจำวันใหม่ (สำหรับหัวหน้างาน)
+      </button>
+    </footer>
+  </div>
+
+  <!-- กล่องข้อความแจ้งเตือน/ยืนยันแบบพรีเมียม (Custom Modal Dialog) -->
+  <div id="custom-modal" class="modal-overlay" style="display: none;">
+    <div class="modal-card card">
+      <div class="modal-header">
+        <i id="modal-icon" class="fa-solid fa-circle-question modal-icon-info"></i>
+        <h3 id="modal-title">ยืนยันการทำรายการ</h3>
+      </div>
+      <div class="modal-body">
+        <p id="modal-message">ข้อความแจ้งเตือน...</p>
+        <div id="modal-input-container" style="display: none;">
+          <input type="text" id="modal-input" autocomplete="off" placeholder="กรอกข้อมูลที่นี่...">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="modal-btn-cancel" class="btn btn-secondary">ยกเลิก</button>
+        <button id="modal-btn-confirm" class="btn btn-primary">ตกลง</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- กล่องเลือกร้านค้าแบบค้นหาได้ (Shop Selector Modal) -->
+  <div id="shop-selector-modal" class="modal-overlay" style="display: none;">
+    <div class="modal-card card shop-selector-card">
+      <div class="modal-header">
+        <i class="fa-solid fa-store modal-icon-info"></i>
+        <h3>เลือกร้านค้าที่รับเคส</h3>
+      </div>
+      <div class="modal-body">
+        <div class="shop-search-container">
+          <i class="fa-solid fa-magnifying-glass shop-search-icon"></i>
+          <input type="text" id="shop-search-input" placeholder="พิมพ์ชื่อร้านหรือรหัสเพื่อค้นหา..." autocomplete="off">
+        </div>
+        <div class="shop-list-container" id="shop-list-container">
+          <p class="shop-list-hint">กำลังโหลดรายชื่อร้านค้า...</p>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="shop-selector-cancel" class="btn btn-secondary">ยกเลิก</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- นำเข้า Supabase Client Library -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- นำเข้าสคริปต์ควบคุมการทำงาน -->
+  <script src="app.js"></script>
+</body>
+</html>

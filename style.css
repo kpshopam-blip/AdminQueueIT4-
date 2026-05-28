@@ -1,0 +1,990 @@
+/* ==========================================================================
+   CSS DESIGN SYSTEM FOR DAILY QUEUE SYSTEM (Sleek Dark Mode Glassmorphism)
+   ========================================================================== */
+
+:root {
+  /* คัลเลอร์พาเลทพรีเมียม */
+  --bg-gradient: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+  --card-bg: rgba(30, 41, 59, 0.7);
+  --card-border: rgba(255, 255, 255, 0.08);
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  
+  /* สีสถานะแอดมิน */
+  --color-active: #10b981;    /* เขียวนีออน - กำลังทำงาน */
+  --color-waiting: #eab308;   /* เหลืองสว่าง - รอคิว */
+  --color-passed: #f97316;    /* ส้ม - ถูกข้ามคิว */
+  --color-offline: #64748b;   /* เทา - ไม่ทำงาน */
+  
+  /* สีปุ่มและไฮไลต์ */
+  --btn-primary-bg: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+  --btn-success-bg: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  --btn-warning-bg: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  --btn-danger-bg: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  --btn-info-bg: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%);
+  
+  /* การจัดแต่งระยะห่าง */
+  --radius-sm: 8px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+  --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  --shadow-premium: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+  --font-thai: 'Prompt', 'Inter', sans-serif;
+}
+
+/* ==========================================================================
+   โครงสร้างและตัวปรับแต่งเริ่มต้น (Reset & Base)
+   ========================================================================== */
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  overflow-x: hidden;
+  overscroll-behavior-x: none;
+}
+
+body {
+  font-family: var(--font-thai);
+  background: var(--bg-gradient);
+  color: var(--text-primary);
+  min-height: 100vh;
+  line-height: 1.6;
+  padding: 16px;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  overflow-x: hidden;
+  overscroll-behavior-x: none;
+  touch-action: manipulation;
+  -webkit-text-size-adjust: 100%;
+}
+
+/* คอนเทนเนอร์หลักของแอป */
+.app-container {
+  width: 100%;
+  max-width: 540px; /* ออกแบบเป็น Mobile-First แต่ยืดหยุ่นได้ถึงแท็บเล็ต */
+  margin: 0 auto;
+  padding-bottom: 40px;
+}
+
+/* ==========================================================================
+   สไตล์การ์ดแบบโปร่งใส (Glassmorphism Cards)
+   ========================================================================== */
+
+.card {
+  background: var(--card-bg);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-md);
+  padding: 20px;
+  margin-bottom: 16px;
+  box-shadow: var(--shadow-premium);
+  position: relative;
+  overflow: hidden;
+}
+
+/* ==========================================================================
+   ส่วนหัวของแอป (App Header)
+   ========================================================================== */
+
+.app-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding: 10px 5px;
+}
+
+.header-logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.logo-icon {
+  font-size: 2rem;
+  background: linear-gradient(135deg, #a5b4fc 0%, #818cf8 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 2px 8px rgba(99, 102, 241, 0.4));
+}
+
+.header-logo h1 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+}
+
+.header-logo p {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.sync-indicator {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(16, 185, 129, 0.1);
+  padding: 6px 12px;
+  border-radius: 20px;
+  border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.sync-indicator .dot {
+  width: 8px;
+  height: 8px;
+  background-color: var(--color-active);
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.sync-indicator .status-text {
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: var(--color-active);
+}
+
+/* แอนิเมชันกระพริบเรียลไทม์ */
+.pulse {
+  animation: pulse-animation 1.5s infinite;
+}
+
+@keyframes pulse-animation {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+  }
+  70% {
+    transform: scale(1.1);
+    box-shadow: 0 0 0 6px rgba(16, 185, 129, 0);
+  }
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+  }
+}
+
+/* ==========================================================================
+   ส่วนเลือกผู้ใช้งาน (User Selector Section)
+   ========================================================================== */
+
+.user-selector-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.user-select-container {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.user-select-container label {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.select-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.select-wrapper::after {
+  content: '\f078';
+  font-family: 'Font Awesome 6 Free';
+  font-weight: 900;
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-secondary);
+  pointer-events: none;
+}
+
+#admin-select {
+  width: 100%;
+  padding: 12px 16px;
+  border-radius: var(--radius-sm);
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid var(--card-border);
+  color: var(--text-primary);
+  font-family: var(--font-thai);
+  font-size: 0.95rem;
+  appearance: none;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+}
+
+#admin-select:focus {
+  outline: none;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+}
+
+.selected-user-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  border-top: 1px dashed var(--card-border);
+  padding-top: 12px;
+}
+
+/* ==========================================================================
+   ส่วนการ์ดแสดงผลเด่นคู่ (Featured Grid: Active & Next Queue)
+   ========================================================================== */
+
+.featured-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.featured-card {
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 140px;
+}
+
+.featured-card .card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+.card-label {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.pulse-indicator {
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: var(--color-active);
+  background: rgba(16, 185, 129, 0.15);
+  padding: 2px 6px;
+  border-radius: 4px;
+  letter-spacing: 0.5px;
+}
+
+.featured-card .card-content {
+  margin-top: 16px;
+}
+
+.admin-name {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 4px;
+}
+
+.card-subtext {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+/* การตกแต่งเฉพาะของ Active Card (กำลังให้บริการ) */
+.active-card {
+  border-left: 4px solid var(--color-active);
+}
+
+.active-card .admin-name {
+  color: var(--color-active);
+  text-shadow: 0 0 10px rgba(16, 185, 129, 0.2);
+}
+
+.timer-display {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(16, 185, 129, 0.15);
+  color: var(--color-active);
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  margin-bottom: 6px;
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  font-family: 'Inter', monospace;
+}
+
+/* การตกแต่งเฉพาะของ Next Card (คิวถัดไป) */
+.next-card {
+  border-left: 4px solid var(--color-waiting);
+}
+
+.next-card .admin-name {
+  color: var(--color-waiting);
+}
+
+/* ==========================================================================
+   แผงควบคุมปุ่ม (Action Control Panel)
+   ========================================================================== */
+
+.action-section {
+  border-top: 3px solid #6366f1;
+}
+
+.section-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.action-buttons-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* ตกแต่งสไตล์ปุ่มกด */
+.btn {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 14px 20px;
+  font-family: var(--font-thai);
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #ffffff;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: var(--transition-smooth);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.btn:active {
+  transform: scale(0.98);
+}
+
+.btn-primary { background: var(--btn-primary-bg); }
+.btn-success { background: var(--btn-success-bg); }
+.btn-warning { background: var(--btn-warning-bg); }
+.btn-danger { background: var(--btn-danger-bg); }
+.btn-info { background: var(--btn-info-bg); }
+
+.btn:hover {
+  filter: brightness(1.1);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
+}
+
+/* ==========================================================================
+   ตารางแสดงลำดับคิวและสถานะ (Queue Table)
+   ========================================================================== */
+
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.queue-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.queue-table th {
+  padding: 10px 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--card-border);
+  text-transform: uppercase;
+}
+
+.queue-table td {
+  padding: 12px 8px;
+  font-size: 0.9rem;
+  vertical-align: middle;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.queue-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.queue-table tr.my-row {
+  background: rgba(99, 102, 241, 0.08);
+}
+
+/* เลขลำดับคิว */
+.queue-badge {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  font-size: 0.8rem;
+  font-weight: 700;
+  font-family: 'Inter', sans-serif;
+}
+
+.queue-badge.first-badge {
+  background: var(--color-waiting);
+  color: #0f172a;
+  box-shadow: 0 0 10px rgba(234, 179, 8, 0.4);
+}
+
+/* ป้ายสถานะ (Status Badge) */
+.status-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.status-waiting {
+  background: rgba(234, 179, 8, 0.15);
+  color: var(--color-waiting);
+  border: 1px solid rgba(234, 179, 8, 0.2);
+}
+
+.status-active {
+  background: rgba(16, 185, 129, 0.15);
+  color: var(--color-active);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.status-passed {
+  background: rgba(249, 115, 22, 0.15);
+  color: var(--color-passed);
+  border: 1px solid rgba(249, 115, 22, 0.2);
+}
+
+.status-offline {
+  background: rgba(100, 116, 139, 0.15);
+  color: var(--color-offline);
+  border: 1px solid rgba(100, 116, 139, 0.2);
+}
+
+.cases-count {
+  font-weight: 700;
+  font-family: 'Inter', sans-serif;
+  text-align: center;
+  display: block;
+}
+
+.no-data {
+  text-align: center;
+  color: var(--text-muted);
+  padding: 20px 0 !important;
+  font-size: 0.85rem;
+}
+
+/* ==========================================================================
+   ส่วนสรุปและรายงาน (Summary Section Dashboard)
+   ========================================================================== */
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.stat-card {
+  background: rgba(15, 23, 42, 0.4);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.stat-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 1.1rem;
+}
+
+.icon-blue {
+  background: rgba(99, 102, 241, 0.15);
+  color: #818cf8;
+}
+
+.icon-green {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+}
+
+.stat-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.stat-num {
+  font-size: 1.25rem;
+  font-weight: 700;
+  font-family: 'Inter', sans-serif;
+  line-height: 1.2;
+}
+
+.stat-label {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+}
+
+/* สถิติ Admin รายคน */
+.stats-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-top: 1px solid var(--card-border);
+  padding-top: 14px;
+}
+
+.stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.85rem;
+  background: rgba(255, 255, 255, 0.02);
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+}
+
+.stat-row-name {
+  font-weight: 500;
+}
+
+.stat-row-val {
+  font-weight: 700;
+  color: var(--color-active);
+  font-family: 'Inter', sans-serif;
+}
+
+/* ==========================================================================
+   ส่วนหน้าต่างเตือนและกล่องข้อมูล (Alerts & Loading)
+   ========================================================================== */
+
+.warning-box {
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.2);
+  border-radius: var(--radius-sm);
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.warning-box i {
+  color: var(--color-waiting);
+  font-size: 1.25rem;
+  margin-top: 2px;
+}
+
+.warning-box h4 {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+
+.warning-box p {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+/* แผ่นภาพรอโหลด (Loading Overlay) */
+.loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(15, 23, 42, 0.95);
+  backdrop-filter: blur(8px);
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+  transition: opacity 0.3s ease;
+}
+
+.spinner {
+  width: 48px;
+  height: 48px;
+  border: 4px solid rgba(99, 102, 241, 0.1);
+  border-top: 4px solid #6366f1;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.loading-overlay p {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+/* ==========================================================================
+   ส่วนท้ายของแอป (App Footer)
+   ========================================================================== */
+
+.app-footer {
+  text-align: center;
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.app-footer p {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+.btn-text-only {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-family: var(--font-thai);
+  font-size: 0.75rem;
+  cursor: pointer;
+  padding: 6px 12px;
+  border-radius: 4px;
+  transition: var(--transition-smooth);
+}
+
+.btn-text-only:hover {
+  color: var(--color-passed);
+  background: rgba(249, 115, 22, 0.05);
+}
+
+/* ==========================================================================
+   การตอบสนองต่อหน้าจอ (Responsive styles)
+   ========================================================================== */
+
+@media (max-width: 400px) {
+  body {
+    padding: 8px;
+  }
+  .card {
+    padding: 15px;
+  }
+  .featured-card {
+    min-height: 120px;
+    padding: 12px;
+  }
+  .admin-name {
+    font-size: 1.05rem;
+  }
+  .btn {
+    padding: 12px 16px;
+    font-size: 0.85rem;
+  }
+}
+
+/* ==========================================================================
+   Premium Custom Modal (Glassmorphism & Mobile Friendly Modal)
+   ========================================================================== */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(15, 23, 42, 0.8);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  z-index: 10000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+  opacity: 0;
+  transition: opacity 0.2s ease-out;
+}
+
+.modal-overlay.active {
+  opacity: 1;
+}
+
+.modal-card {
+  width: 100%;
+  max-width: 380px;
+  transform: scale(0.9) translateY(10px);
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  border-top: 4px solid #6366f1;
+  background: var(--card-bg);
+  box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.7);
+  margin-bottom: 0 !important; /* ปิดระยะขอบล่างของการ์ดปกติ */
+}
+
+.modal-overlay.active .modal-card {
+  transform: scale(1) translateY(0);
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.modal-header h3 {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+#modal-icon {
+  font-size: 1.6rem;
+  display: inline-block;
+}
+
+/* สีไอคอนแจ้งเตือนแต่ละแบบ */
+.modal-icon-info { color: #06b6d4; }      /* ฟ้า */
+.modal-icon-success { color: #10b981; }   /* เขียว */
+.modal-icon-warning { color: #f59e0b; }   /* เหลือง */
+.modal-icon-danger { color: #ef4444; }    /* แดง */
+
+.modal-body {
+  margin-bottom: 20px;
+}
+
+.modal-body p {
+  font-size: 0.95rem;
+  color: var(--text-primary);
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+#modal-input-container {
+  margin-top: 14px;
+}
+
+#modal-input {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid var(--card-border);
+  color: var(--text-primary);
+  font-family: var(--font-thai);
+  font-size: 0.95rem;
+  transition: var(--transition-smooth);
+}
+
+#modal-input:focus {
+  outline: none;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+}
+
+.modal-footer {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.modal-footer .btn {
+  width: auto;
+  min-width: 90px;
+  padding: 10px 18px;
+  font-size: 0.9rem;
+}
+
+.btn-secondary {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--card-border);
+  color: var(--text-primary);
+}
+
+.btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+/* ==========================================================================
+   ข้อมูลร้านค้าบนการ์ด Active (Shop Info on Active Card)
+   ========================================================================== */
+
+.card-shop-info {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(99, 102, 241, 0.12);
+  color: #a5b4fc;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin-bottom: 6px;
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+/* ==========================================================================
+   Shop Selector Modal (กล่องเลือกร้านค้าแบบค้นหาได้)
+   ========================================================================== */
+
+.shop-selector-card {
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  max-width: 420px;
+}
+
+.shop-selector-card .modal-body {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  flex: 1;
+  min-height: 0;
+}
+
+.shop-search-container {
+  position: relative;
+  margin-bottom: 12px;
+  flex-shrink: 0;
+}
+
+.shop-search-icon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+#shop-search-input {
+  width: 100%;
+  padding: 12px 14px 12px 40px;
+  border-radius: var(--radius-sm);
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid var(--card-border);
+  color: var(--text-primary);
+  font-family: var(--font-thai);
+  font-size: 0.95rem;
+  transition: var(--transition-smooth);
+}
+
+#shop-search-input:focus {
+  outline: none;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+}
+
+.shop-list-container {
+  max-height: 50vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-right: 4px;
+  flex: 1;
+  min-height: 0;
+}
+
+/* สไตล์ scrollbar สำหรับรายการร้านค้า */
+.shop-list-container::-webkit-scrollbar {
+  width: 6px;
+}
+
+.shop-list-container::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 3px;
+}
+
+.shop-list-container::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 3px;
+}
+
+.shop-list-container::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.shop-item {
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: var(--transition-smooth);
+  border: 1px solid transparent;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.shop-item:hover,
+.shop-item:active {
+  background: rgba(99, 102, 241, 0.15);
+  border-color: rgba(99, 102, 241, 0.3);
+}
+
+.shop-item .shop-name {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.shop-item .shop-code {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  font-family: 'Inter', monospace;
+}
+
+.shop-list-hint,
+.shop-list-empty {
+  text-align: center;
+  color: var(--text-muted);
+  padding: 20px 0;
+  font-size: 0.85rem;
+}
+
+.shop-match-count {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  text-align: right;
+  padding: 4px 0;
+  flex-shrink: 0;
+}
+
