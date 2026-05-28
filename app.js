@@ -530,8 +530,13 @@ async function reorderQueues(deletedQueueNum) {
 
 async function checkDailyReset() {
   try {
-    const { data } = await db.from('admin_queue')
-      .select('last_action_time').not('last_action_time', 'is', null).limit(1).single();
+    const { data, error } = await db.from('admin_queue')
+      .select('last_action_time').not('last_action_time', 'is', null).limit(1).maybeSingle();
+
+    if (error) {
+      console.warn('Daily reset check failed or table is empty:', error);
+      return;
+    }
 
     if (data && data.last_action_time) {
       const lastDate = new Date(data.last_action_time);
