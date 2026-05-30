@@ -324,7 +324,12 @@ async function dbCheckIn(adminName) {
     if (error) return { success: false, message: error.message };
   }
 
-  return { success: true, message: adminName + ' ลงชื่อเข้างานเป็นคิวที่ ' + nextQueueNum };
+  await dbCompactQueues();
+
+  const { data: updatedAdmin } = await db.from('admin_queue').select('queue_num').eq('name', adminName).single();
+  const finalQueueNum = updatedAdmin ? updatedAdmin.queue_num : nextQueueNum;
+
+  return { success: true, message: adminName + ' ลงชื่อเข้างานเป็นคิวที่ ' + finalQueueNum };
 }
 
 async function dbCheckOut(adminName) {
@@ -333,7 +338,6 @@ async function dbCheckOut(adminName) {
   const { data: adminData } = await db.from('admin_queue').select('queue_num').eq('name', adminName).single();
   if (!adminData) return { success: false, message: 'ไม่พบรายชื่อ Admin ในระบบ' };
 
-  const checkoutQueueNum = adminData.queue_num;
   const now = new Date().toISOString();
 
   const { error } = await db.from('admin_queue').update({
@@ -341,7 +345,7 @@ async function dbCheckOut(adminName) {
   }).eq('name', adminName);
   if (error) return { success: false, message: error.message };
 
-  if (checkoutQueueNum != null) await reorderQueues(checkoutQueueNum);
+  await dbCompactQueues();
 
   return { success: true, message: adminName + ' ลงชื่อออกงานเรียบร้อยแล้ว' };
 }
@@ -358,7 +362,19 @@ async function dbAcceptCase(adminName, shopData) {
   const { data: adminData } = await db.from('admin_queue').select('queue_num').eq('name', adminName).single();
   if (!adminData) return { success: false, message: 'ไม่พบรายชื่อ Admin ในระบบ' };
 
-  if (adminData.queue_num !== 1) {
+  // ดึงคิวที่น้อยที่สุดในระบบที่สถานะรอคิวหรือข้ามคิว
+  const { data: minQueueData, error: minQueueErr } = await db
+    .from('admin_queue')
+    .select('queue_num')
+    .or('status.eq.Waiting,status.eq.Passed')
+    .order('queue_num', { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  if (minQueueErr) return { success: false, message: minQueueErr.message };
+  const minQueueNum = minQueueData ? minQueueData.queue_num : null;
+
+  if (adminData.queue_num !== minQueueNum) {
     return { success: false, message: 'ยังไม่ถึงคิวของคุณ (ปัจจุบันคุณเป็นคิวที่ ' + adminData.queue_num + ')' };
   }
 
@@ -385,7 +401,7 @@ async function dbAcceptCase(adminName, shopData) {
   }).eq('name', adminName);
   if (error) return { success: false, message: error.message };
 
-  await reorderQueues(1);
+  await dbCompactQueues();
 
   return { success: true, message: adminName + ' เริ่มรับเคส — ร้าน: ' + shopData.shop_name };
 }
@@ -433,24 +449,31 @@ async function dbPassQueue(adminName) {
   const { data: adminData } = await db.from('admin_queue').select('queue_num').eq('name', adminName).single();
   if (!adminData) return { success: false, message: 'ไม่พบรายชื่อ Admin ในระบบ' };
 
-  if (adminData.queue_num !== 1) {
+  // ดึงคิวที่น้อยที่สุดในระบบที่สถานะรอคิวหรือข้ามคิว
+  const { data: minQueueData, error: minQueueErr } = await db
+    .from('admin_queue')
+    .select('queue_num')
+    .or('status.eq.Waiting,status.eq.Passed')
+    .order('queue_num', { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  if (minQueueErr) return { success: false, message: minQueueErr.message };
+  const minQueueNum = minQueueData ? minQueueData.queue_num : null;
+
+  if (adminData.queue_num !== minQueueNum) {
     return { success: false, message: 'ไม่สามารถกดข้ามคิวได้เนื่องจากคุณไม่ใช่คิวปัจจุบัน' };
   }
 
   const now = new Date().toISOString();
-  const { data: queueData } = await db.from('admin_queue').select('queue_num').or('status.eq.Waiting,status.eq.Passed');
-  const totalWaiting = queueData ? queueData.length : 1;
 
+  // ตั้งค่า queue_num เป็นค่ามาก ๆ ชั่วคราวเพื่อให้ไปอยู่ท้ายสุดเมื่อทำ compaction
   const { error } = await db.from('admin_queue').update({
-    status: 'Passed', queue_num: totalWaiting, last_action_time: now
+    status: 'Passed', queue_num: 9999, last_action_time: now
   }).eq('name', adminName);
   if (error) return { success: false, message: error.message };
 
-  await reorderQueues(1);
-
-  const { data: updatedQueue } = await db.from('admin_queue').select('name').or('status.eq.Waiting,status.eq.Passed');
-  const waitingCount = updatedQueue ? updatedQueue.length : 1;
-  await db.from('admin_queue').update({ queue_num: waitingCount }).eq('name', adminName);
+  await dbCompactQueues();
 
   return { success: true, message: adminName + ' กดข้ามคิวและขยับไปอยู่ลำดับสุดท้าย' };
 }
@@ -492,6 +515,8 @@ async function dbCancelCase(adminName) {
     await db.from('case_logs').delete().eq('admin_name', adminName).is('end_time', null);
   }
 
+  await dbCompactQueues();
+
   return { success: true, message: adminName + ' ยกเลิกเคสเรียบร้อย ย้ายกลับเป็นคิวที่ 1' };
 }
 
@@ -526,6 +551,36 @@ async function reorderQueues(deletedQueueNum) {
       }
     }
   }
+}
+
+/**
+ * จัดลำดับคิวในฐานข้อมูลใหม่ให้เรียงกันจาก 1 ไปเรื่อย ๆ โดยไม่มีช่องว่าง (Queue Compaction)
+ */
+async function dbCompactQueues() {
+  const { data, error } = await db.from('admin_queue')
+    .select('name, queue_num')
+    .or('status.eq.Waiting,status.eq.Passed')
+    .order('queue_num', { ascending: true });
+
+  if (error) {
+    console.error('Error fetching queues for compaction:', error);
+    return { success: false, message: error.message };
+  }
+
+  if (data && data.length > 0) {
+    for (let i = 0; i < data.length; i++) {
+      const expectedQueueNum = i + 1;
+      if (data[i].queue_num !== expectedQueueNum) {
+        const { error: updateErr } = await db.from('admin_queue')
+          .update({ queue_num: expectedQueueNum })
+          .eq('name', data[i].name);
+        if (updateErr) {
+          console.error('Error updating queue_num during compaction:', updateErr);
+        }
+      }
+    }
+  }
+  return { success: true };
 }
 
 async function checkDailyReset() {
@@ -669,7 +724,6 @@ function updateActionPanel() {
 
   const adminData = findAdminData(appState.selectedAdmin);
   const status = (adminData && adminData.status) ? adminData.status : "Offline";
-  const queueNum = adminData ? adminData.queueNum : null;
 
   // ซ่อนปุ่มทั้งหมด
   dom.btnCheckin.style.display = 'none';
@@ -683,7 +737,10 @@ function updateActionPanel() {
     dom.btnCheckin.style.display = 'inline-flex';
   } else if (status === "Waiting" || status === "Passed") {
     dom.btnCheckout.style.display = 'inline-flex';
-    if (queueNum === 1) {
+    
+    // ตรวจสอบว่าแอดมินคนนี้เป็นคิวแรกสุดในรายการที่รอรับงานหรือไม่ (ป้องกันปัญหาเลขคิวขาด/มีช่องว่าง)
+    const isFirstInQueue = appState.queueList.length > 0 && appState.queueList[0].name === appState.selectedAdmin;
+    if (isFirstInQueue) {
       dom.btnAccept.style.display = 'inline-flex';
       dom.btnPass.style.display = 'inline-flex';
       dom.btnAccept.classList.add('pulse');
