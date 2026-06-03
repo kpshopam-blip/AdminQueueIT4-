@@ -243,99 +243,330 @@ body {
    ส่วนการ์ดแสดงผลเด่นคู่ (Featured Grid: Active & Next Queue)
    ========================================================================== */
 
-.featured-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  margin-bottom: 16px;
+
+/* ==========================================================================
+   ส่วนกระดานเลือกรับงานร้านค้า (Shop Claims Board CSS Grid)
+   ========================================================================== */
+
+.shop-board-section {
+  border-top: 3px solid #10b981; /* แถบสีเขียวนีออนสำหรับบอร์ดร้านค้า */
 }
 
-.featured-card {
-  padding: 18px;
+.shop-board-header {
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  min-height: 140px;
+  gap: 12px;
+  margin-bottom: 20px;
 }
 
-.featured-card .card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+@media (min-width: 480px) {
+  .shop-board-header {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+  }
+}
+
+.shop-board-header .section-title {
+  margin-bottom: 0;
+}
+
+/* ค้นหาร้านค้า */
+#shop-board-search-input {
+  width: 100%;
+  padding: 10px 14px 10px 38px;
+  border-radius: var(--radius-sm);
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid var(--card-border);
+  color: var(--text-primary);
+  font-family: var(--font-thai);
+  font-size: 0.9rem;
+  transition: var(--transition-smooth);
+}
+
+#shop-board-search-input:focus {
+  outline: none;
+  border-color: #10b981;
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+}
+
+/* บอร์ดแสดงผลการ์ดร้านค้า */
+.shop-board-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 12px;
   width: 100%;
 }
 
-.card-label {
-  font-size: 0.75rem;
-  font-weight: 500;
-  color: var(--text-secondary);
-  display: flex;
-  align-items: center;
-  gap: 5px;
+@media (max-width: 400px) {
+  .shop-board-grid {
+    grid-template-columns: 1fr 1fr; /* แสดง 2 คอลัมน์บนมือถือเล็ก */
+  }
 }
 
-.pulse-indicator {
-  font-size: 0.6rem;
-  font-weight: 700;
-  color: var(--color-active);
-  background: rgba(16, 185, 129, 0.15);
-  padding: 2px 6px;
-  border-radius: 4px;
+/* การ์ดร้านค้า */
+.shop-card {
+  padding: 12px 14px;
+  margin-bottom: 0;
+  min-height: 140px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  border-radius: var(--radius-sm);
+  background: rgba(30, 41, 59, 0.4);
+  border: 1px solid var(--card-border);
+  transition: var(--transition-smooth);
+}
+
+.shop-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(255, 255, 255, 0.15);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+}
+
+.shop-card-header {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 10px;
+}
+
+.shop-card-header .shop-code {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  font-family: 'Inter', monospace;
+  font-weight: 600;
   letter-spacing: 0.5px;
 }
 
-.featured-card .card-content {
-  margin-top: 16px;
-}
-
-.admin-name {
-  font-size: 1.25rem;
-  font-weight: 700;
+.shop-card-header .shop-name-title {
+  font-size: 0.9rem;
+  font-weight: 600;
   color: var(--text-primary);
-  white-space: nowrap;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
   text-overflow: ellipsis;
-  margin-bottom: 4px;
+  line-height: 1.3;
 }
 
-.card-subtext {
+.shop-card-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  margin-bottom: 12px;
+  gap: 6px;
+}
+
+/* ป้ายสถานะว่าง / มีผู้ดูแล */
+.badge-free {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--color-active);
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  padding: 2px 8px;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.badge-occupied {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #60a5fa; /* สีฟ้าสว่างสำหรับแอดมินคนอื่น */
+  background: rgba(96, 165, 250, 0.1);
+  border: 1px solid rgba(96, 165, 250, 0.2);
+  padding: 2px 8px;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.owned-shop .badge-occupied {
+  color: #a5b4fc; /* สีม่วงสว่างสำหรับตัวเราเอง */
+  background: rgba(165, 180, 252, 0.1);
+  border: 1px solid rgba(165, 180, 252, 0.25);
+}
+
+/* จับเวลา Live Timer */
+.live-timer-wrapper {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  font-family: 'Inter', monospace;
+  color: #60a5fa;
+}
+
+.owned-shop .live-timer-wrapper {
+  color: #a5b4fc;
+}
+
+/* ปุ่มรับเคสและการยืนยัน */
+.shop-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
+.btn-claim-shop {
+  width: 100%;
+  padding: 8px 12px;
+  font-family: var(--font-thai);
+  font-size: 0.8rem;
+  font-weight: 600;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: #ffffff;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-claim-shop:hover {
+  filter: brightness(1.1);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+.btn-claim-shop.disabled,
+.btn-claim-shop:disabled {
+  background: rgba(100, 116, 139, 0.2);
+  color: var(--text-muted);
+  border: 1px solid var(--card-border);
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.btn-claim-shop.disabled:hover {
+  filter: none;
+  box-shadow: none;
+}
+
+/* ปุ่มสำหรับเจ้าของร้าน */
+.owner-actions {
+  display: flex;
+  gap: 6px;
+  width: 100%;
+}
+
+.btn-complete-shop {
+  flex: 1;
+  padding: 8px 10px;
+  font-family: var(--font-thai);
+  font-size: 0.8rem;
+  font-weight: 600;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(135deg, #a5b4fc 0%, #6366f1 100%);
+  color: #ffffff;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 4px;
+}
+
+.btn-complete-shop:hover {
+  filter: brightness(1.1);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+}
+
+.btn-cancel-shop {
+  padding: 8px;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: var(--radius-sm);
+  background: rgba(239, 68, 68, 0.1);
+  color: #f87171;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.btn-cancel-shop:hover {
+  background: rgba(239, 68, 68, 0.25);
+  border-color: rgba(239, 68, 68, 0.5);
+  color: #ffffff;
+}
+
+/* ข้อความเตือนเมื่อถูกผู้ดูแลคนอื่นใช้งาน */
+.shop-card-blocked-msg {
   font-size: 0.7rem;
   color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  justify-content: center;
+  text-align: center;
+  width: 100%;
 }
 
-/* การตกแต่งเฉพาะของ Active Card (กำลังให้บริการ) */
-.active-card {
-  border-left: 4px solid var(--color-active);
+/* การจัดรายการร้านค้าของผู้ดูแลในตาราง Admin */
+.admin-shops-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 
-.active-card .admin-name {
-  color: var(--color-active);
-  text-shadow: 0 0 10px rgba(16, 185, 129, 0.2);
-}
-
-.timer-display {
+.admin-shop-item-badge {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background: rgba(16, 185, 129, 0.15);
-  color: var(--color-active);
-  padding: 4px 10px;
-  border-radius: 12px;
-  font-size: 0.85rem;
-  font-weight: 700;
-  margin-bottom: 6px;
-  border: 1px solid rgba(16, 185, 129, 0.25);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--card-border);
+  padding: 3px 8px;
+  border-radius: 6px;
+  transition: var(--transition-smooth);
+}
+
+.admin-shop-item-badge:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.admin-shop-item-badge .admin-shop-name {
+  font-size: 0.75rem;
+  font-weight: 600;
   font-family: 'Inter', monospace;
+  color: var(--text-primary);
 }
 
-/* การตกแต่งเฉพาะของ Next Card (คิวถัดไป) */
-.next-card {
-  border-left: 4px solid var(--color-waiting);
+.admin-shop-item-badge .admin-table-live-timer {
+  font-size: 0.75rem;
+  font-weight: 700;
+  font-family: 'Inter', monospace;
+  color: var(--color-active);
 }
 
-.next-card .admin-name {
-  color: var(--color-waiting);
+.no-shops-text {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
+
+.offline-text {
+  color: var(--text-muted);
+}
+
 
 /* ==========================================================================
    แผงควบคุมปุ่ม (Action Control Panel)
