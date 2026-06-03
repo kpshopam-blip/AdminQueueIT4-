@@ -71,6 +71,12 @@
           <input type="text" id="shop-board-search-input" placeholder="พิมพ์รหัสร้านหรือชื่อร้านเพื่อค้นหา..." autocomplete="off">
         </div>
       </div>
+      <div class="shop-board-filters" id="shop-board-filters">
+        <button class="filter-tab active" data-filter="all"><i class="fa-solid fa-border-all"></i> ทั้งหมด</button>
+        <button class="filter-tab" data-filter="free"><i class="fa-solid fa-circle-check"></i> ว่าง</button>
+        <button class="filter-tab" data-filter="occupied"><i class="fa-solid fa-user-clock"></i> มีผู้ดูแล</button>
+        <button class="filter-tab" id="tab-my-shops" data-filter="mine" style="display: none;"><i class="fa-solid fa-circle-user"></i> งานของฉัน</button>
+      </div>
       <div class="shop-board-grid" id="shop-board-grid">
         <div class="no-data">กำลังโหลดรายชื่อร้านค้า...</div>
       </div>
