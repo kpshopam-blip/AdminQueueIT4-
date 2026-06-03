@@ -62,42 +62,23 @@
       </div>
     </div>
 
-    <!-- ส่วนสถานะเด่น (Featured Status Area) -->
-    <div class="featured-grid">
-      <!-- บัตรกำลังรับเคส (Active Card) -->
-      <div class="featured-card card active-card">
-        <div class="card-glow"></div>
-        <div class="card-header">
-          <span class="card-label"><i class="fa-solid fa-headset"></i> สถานะรับเคสอยู่</span>
-          <span class="pulse-indicator">LIVE</span>
-        </div>
-        <div class="card-content" id="active-card-content">
-          <h2 class="admin-name" id="active-admin-name">- ไม่มี -</h2>
-          <div class="timer-display" id="active-timer" style="display: none;">
-            <i class="fa-solid fa-clock"></i> <span id="timer-text">00:00</span>
-          </div>
-          <p class="card-shop-info" id="active-shop-info" style="display: none;">
-            <i class="fa-solid fa-store"></i> <span id="active-shop-text"></span>
-          </p>
-          <p class="card-subtext">กำลังดูแลลูกค้าและแก้ปัญหา</p>
+    <!-- ส่วนกระดานจัดการร้านค้าและการรับเคสแบบเรียลไทม์ (Shop Claim Board) -->
+    <section class="section shop-board-section card" id="shop-board-section">
+      <div class="shop-board-header">
+        <h3 class="section-title"><i class="fa-solid fa-store"></i> ค้นหาและเลือกรับร้านค้า (Shop Claims Board)</h3>
+        <div class="shop-search-container">
+          <i class="fa-solid fa-magnifying-glass shop-search-icon"></i>
+          <input type="text" id="shop-board-search-input" placeholder="พิมพ์รหัสร้านหรือชื่อร้านเพื่อค้นหา..." autocomplete="off">
         </div>
       </div>
-
-      <!-- บัตรรอรับงานถัดไป (Next in Queue Card) -->
-      <div class="featured-card card next-card">
-        <div class="card-header">
-          <span class="card-label"><i class="fa-solid fa-circle-play"></i> คิวถัดไป (คิวที่ 1)</span>
-        </div>
-        <div class="card-content" id="next-card-content">
-          <h2 class="admin-name" id="next-admin-name">- ว่างเปล่า -</h2>
-          <p class="card-subtext" id="next-admin-sub">กรุณารอสแตนด์บายเมื่อมีเคสใหม่</p>
-        </div>
+      <div class="shop-board-grid" id="shop-board-grid">
+        <div class="no-data">กำลังโหลดรายชื่อร้านค้า...</div>
       </div>
-    </div>
+    </section>
 
-    <!-- แผงควบคุมคำสั่ง (Admin Control Action Bar) -->
+    <!-- แผงควบคุมคำสั่งแอดมิน (Admin Control Action Bar) -->
     <section class="section action-section card" id="action-panel" style="display: none;">
-      <h3 class="section-title"><i class="fa-solid fa-terminal"></i> แผงปุ่มสำหรับ <span id="action-user-name">คุณ</span></h3>
+      <h3 class="section-title"><i class="fa-solid fa-terminal"></i> แผงควบคุมสำหรับ <span id="action-user-name">คุณ</span></h3>
       <div class="action-buttons-grid">
         <!-- ปุ่มเช็คอินเข้างาน -->
         <button id="btn-checkin" class="btn btn-primary" style="display: none;">
@@ -107,41 +88,25 @@
         <button id="btn-checkout" class="btn btn-danger" style="display: none;">
           <i class="fa-solid fa-right-from-bracket"></i> ลงชื่อออกงาน (Check-Out)
         </button>
-        <!-- ปุ่มกดรับเคส (สำหรับคิวที่ 1) -->
-        <button id="btn-accept" class="btn btn-success" style="display: none;">
-          <i class="fa-solid fa-circle-check"></i> รับเคสลูกค้า
-        </button>
-        <!-- ปุ่มกดข้ามคิว (สำหรับคิวที่ 1) -->
-        <button id="btn-pass" class="btn btn-warning" style="display: none;">
-          <i class="fa-solid fa-forward"></i> ขอข้ามคิวนี้ (Pass)
-        </button>
-        <!-- ปุ่มกดจบงานคิว (สำหรับคนที่มีสถานะ Active) -->
-        <button id="btn-complete" class="btn btn-info" style="display: none;">
-          <i class="fa-solid fa-circle-stop"></i> จบเคส (Complete Case)
-        </button>
-        <!-- ปุ่มยกเลิกเคส (สำหรับคนที่กดรับเคสผิด) -->
-        <button id="btn-cancel" class="btn btn-danger" style="display: none;">
-          <i class="fa-solid fa-xmark"></i> ยกเลิกเคส (กดผิด)
-        </button>
       </div>
     </section>
 
-    <!-- ส่วนรายชื่อ Admin และลำดับคิวทั้งหมด (All Queue List) -->
-    <section class="section queue-list-section card">
-      <h3 class="section-title"><i class="fa-solid fa-list-ol"></i> ลำดับคิวและสถานะแอดมินทั้งหมด</h3>
+    <!-- ส่วนแสดงรายชื่อแอดมินและงานที่กำลังดูแล (Admins Working Directory) -->
+    <section class="section admin-list-section card">
+      <h3 class="section-title"><i class="fa-solid fa-users-gear"></i> สถานะแอดมินและงานที่ดูแลปัจจุบัน</h3>
       <div class="table-responsive">
         <table class="queue-table">
           <thead>
             <tr>
-              <th style="width: 15%;">คิว</th>
-              <th style="width: 45%;">รายชื่อ</th>
-              <th style="width: 25%;">สถานะ</th>
-              <th style="width: 15%; text-align: center;">วันนี้</th>
+              <th style="width: 30%;">รายชื่อแอดมิน</th>
+              <th style="width: 15%;">สถานะ</th>
+              <th style="width: 40%;">ร้านค้าที่กำลังดูแลอยู่ (จับเวลา)</th>
+              <th style="width: 15%; text-align: center;">เคสวันนี้</th>
             </tr>
           </thead>
-          <tbody id="queue-table-body">
+          <tbody id="admin-table-body">
             <tr>
-              <td colspan="4" class="no-data">กำลังดึงข้อมูลคิวล่าสุด...</td>
+              <td colspan="4" class="no-data">กำลังโหลดข้อมูลแอดมิน...</td>
             </tr>
           </tbody>
         </table>
