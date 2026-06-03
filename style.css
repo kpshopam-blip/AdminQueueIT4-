@@ -290,12 +290,85 @@ body {
   box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
 }
 
+/* แท็บตัวกรองร้านค้าบนบอร์ด */
+.shop-board-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 16px;
+  background: rgba(15, 23, 42, 0.4);
+  padding: 4px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--card-border);
+}
+
+.filter-tab {
+  flex: 1;
+  min-width: 70px;
+  padding: 8px 12px;
+  font-family: var(--font-thai);
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.filter-tab:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.filter-tab.active {
+  color: #ffffff;
+  background: rgba(16, 185, 129, 0.2);
+  border-color: rgba(16, 185, 129, 0.4);
+  font-weight: 600;
+  box-shadow: 0 4px 10px rgba(16, 185, 129, 0.1);
+}
+
+#tab-my-shops.active {
+  background: rgba(99, 102, 241, 0.2);
+  border-color: rgba(99, 102, 241, 0.4);
+  box-shadow: 0 4px 10px rgba(99, 102, 241, 0.1);
+}
+
 /* บอร์ดแสดงผลการ์ดร้านค้า */
 .shop-board-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
   gap: 12px;
   width: 100%;
+  max-height: 420px; /* จำกัดความสูงของบอร์ดร้านค้าไม่ให้ยาวเกินไป */
+  overflow-y: auto;   /* ให้แสดง scrollbar เลื่อนแนวตั้ง */
+  padding-right: 6px;  /* ป้องกันการ์ดโดนทับด้วย scrollbar */
+}
+
+/* ตกแต่งแถบเลื่อน (Scrollbar) สำหรับบอร์ดร้านค้า */
+.shop-board-grid::-webkit-scrollbar {
+  width: 6px;
+}
+
+.shop-board-grid::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 3px;
+}
+
+.shop-board-grid::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+
+.shop-board-grid::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
 }
 
 @media (max-width: 400px) {
