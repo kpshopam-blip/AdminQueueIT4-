@@ -14,13 +14,11 @@ const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // ตัวแปรเก็บข้อมูลภายในแอป (State)
 let appState = {
-  queueList: [],
-  activeList: [],
-  offlineList: [],
+  admins: [],       // รายชื่อแอดมินทั้งหมดจาก Supabase ตาราง admin_queue
   selectedAdmin: null,
-  activeTimerInterval: null,
-  activeAdminStartTime: null,
-  shops: [] // รายชื่อร้านค้าทั้งหมดจาก Supabase
+  shops: [],        // รายชื่อร้านค้าทั้งหมดจาก Supabase
+  searchQuery: "",  // คำค้นหาร้านค้าบนบอร์ด
+  liveInterval: null // ตัวแปรสำหรับ setInterval
 };
 
 // อ้างอิงอิลิเมนต์ใน HTML (DOM Elements)
@@ -30,22 +28,13 @@ const dom = {
   currentUserInfo: document.getElementById('current-user-info'),
   myStatusBadge: document.getElementById('my-status-badge'),
   noAdminsWarning: document.getElementById('no-admins-warning'),
-  activeAdminName: document.getElementById('active-admin-name'),
-  activeTimer: document.getElementById('active-timer'),
-  timerText: document.getElementById('timer-text'),
-  activeShopInfo: document.getElementById('active-shop-info'),
-  activeShopText: document.getElementById('active-shop-text'),
-  nextAdminName: document.getElementById('next-admin-name'),
-  nextAdminSub: document.getElementById('next-admin-sub'),
   actionPanel: document.getElementById('action-panel'),
   actionUserName: document.getElementById('action-user-name'),
   btnCheckin: document.getElementById('btn-checkin'),
   btnCheckout: document.getElementById('btn-checkout'),
-  btnAccept: document.getElementById('btn-accept'),
-  btnPass: document.getElementById('btn-pass'),
-  btnComplete: document.getElementById('btn-complete'),
-  btnCancel: document.getElementById('btn-cancel'),
-  queueTableBody: document.getElementById('queue-table-body'),
+  shopBoardSearchInput: document.getElementById('shop-board-search-input'),
+  shopBoardGrid: document.getElementById('shop-board-grid'),
+  adminTableBody: document.getElementById('admin-table-body'),
   totalCasesToday: document.getElementById('total-cases-today'),
   totalAdminsActive: document.getElementById('total-admins-active'),
   adminsStatsList: document.getElementById('admins-stats-list'),
@@ -73,6 +62,12 @@ window.addEventListener('DOMContentLoaded', () => {
   });
 
   setupRealtimeSubscription();
+
+  // ตั้งช่วงเวลานับ Live Timers ทุกวินาที
+  setInterval(() => {
+    updateLiveTimers();
+    updateAdminTableTimers();
+  }, 1000);
 });
 
 function setupEventListeners() {
@@ -87,7 +82,7 @@ function setupEventListeners() {
 
   dom.btnCheckout.addEventListener('click', async () => {
     const isConfirm = await showCustomConfirm(
-      'คุณต้องการลงชื่อออกงาน (Check-Out) และถอนรายชื่อออกจากลำดับคิวใช่หรือไม่?',
+      'คุณต้องการลงชื่อออกงาน (Check-Out) จากระบบปฏิบัติงานใช่หรือไม่?',
       'ยืนยันการ Check-Out',
       'modal-icon-danger',
       'fa-right-from-bracket'
@@ -95,49 +90,17 @@ function setupEventListeners() {
     if (isConfirm) executeAction('checkOut');
   });
 
-  // ปุ่มรับเคส: เปิด Shop Selector ก่อน แล้วค่อยรับเคสพร้อมข้อมูลร้าน
-  dom.btnAccept.addEventListener('click', async () => {
-    const selectedShop = await showShopSelector();
-    if (selectedShop) {
-      executeAction('acceptCase', selectedShop);
-    }
-  });
-
-  dom.btnPass.addEventListener('click', async () => {
-    const isConfirm = await showCustomConfirm(
-      'คุณต้องการข้ามคิวของคุณและส่งรายชื่อไปต่อท้ายสุดของคิวใช่หรือไม่?',
-      'ยืนยันการข้ามคิว',
-      'modal-icon-warning',
-      'fa-forward'
-    );
-    if (isConfirm) executeAction('passQueue');
-  });
-
-  dom.btnComplete.addEventListener('click', async () => {
-    const isConfirm = await showCustomConfirm(
-      'คุณแน่ใจว่าต้องการจบเคสนี้แล้วใช่ไหม?\n(เวลาจะถูกนำไปบันทึกสถิติลงฐานข้อมูล)',
-      'ยืนยันการจบเคส',
-      'modal-icon-success',
-      'fa-circle-stop'
-    );
-    if (isConfirm) executeAction('completeCase');
-  });
-
-  // ปุ่มยกเลิกเคส (กดผิด)
-  dom.btnCancel.addEventListener('click', async () => {
-    const isConfirm = await showCustomConfirm(
-      'คุณต้องการยกเลิกเคสนี้ใช่ไหม?\n(คุณจะถูกย้ายกลับไปเป็นคิวที่ 1)',
-      'ยืนยันการยกเลิกเคส',
-      'modal-icon-warning',
-      'fa-xmark'
-    );
-    if (isConfirm) executeAction('cancelCase');
-  });
+  if (dom.shopBoardSearchInput) {
+    dom.shopBoardSearchInput.addEventListener('input', (e) => {
+      appState.searchQuery = e.target.value.trim().toLowerCase();
+      renderShopBoard();
+    });
+  }
 
   dom.btnManualReset.addEventListener('click', async () => {
     const password = await showCustomPrompt(
-      'กรุณาพิมพ์คำว่า "RESET" (ตัวพิมพ์ใหญ่ทั้งหมด)\nเพื่อยืนยันการล้างข้อมูลคิวและยอดเคสสะสมของวันนี้:',
-      'ยืนยันการรีเซ็ตระบบคิว',
+      'กรุณาพิมพ์คำว่า "RESET" (ตัวพิมพ์ใหญ่ทั้งหมด)\nเพื่อยืนยันการล้างข้อมูลการทำงานและยอดเคสสะสมของวันนี้:',
+      'ยืนยันการรีเซ็ตระบบประจำวัน',
       'พิมพ์คำว่า RESET'
     );
     if (password === 'RESET') {
@@ -190,22 +153,37 @@ async function fetchDataFromSupabase(showLoader = false) {
       return;
     }
 
-    const mapped = (data || []).map(row => ({
-      name: row.name,
-      status: row.status || 'Offline',
-      queueNum: row.queue_num != null ? parseInt(row.queue_num) : null,
-      checkInTime: row.check_in_time,
-      completedCases: row.completed_cases || 0,
-      lastActionTime: row.last_action_time,
-      currentShopCode: row.current_shop_code || null,
-      currentShopName: row.current_shop_name || null
-    }));
+    const mapped = (data || []).map(row => {
+      // ดึงร้านค้าที่กำลังทำงานอยู่ (จาก JSON หรือ Legacy Text)
+      let activeShops = [];
+      if (row.current_shop_code) {
+        if (row.current_shop_code.startsWith('[')) {
+          try {
+            activeShops = JSON.parse(row.current_shop_code);
+          } catch (e) {
+            console.error('Error parsing JSON from current_shop_code:', e);
+          }
+        } else {
+          // รองรับข้อมูล Legacy แบบเดิม
+          activeShops = [{
+            shop_code: row.current_shop_code,
+            shop_name: row.current_shop_name || 'ร้านค้า',
+            assigned_at: row.last_action_time || new Date().toISOString()
+          }];
+        }
+      }
 
-    appState.queueList = mapped
-      .filter(a => a.status === 'Waiting' || a.status === 'Passed')
-      .sort((a, b) => (a.queueNum || 999) - (b.queueNum || 999));
-    appState.activeList = mapped.filter(a => a.status === 'Active');
-    appState.offlineList = mapped.filter(a => a.status === 'Offline');
+      return {
+        name: row.name,
+        status: row.status || 'Offline',
+        checkInTime: row.check_in_time,
+        completedCases: row.completed_cases || 0,
+        lastActionTime: row.last_action_time,
+        activeShops: activeShops
+      };
+    });
+
+    appState.admins = mapped;
 
     populateAdminSelect();
     updateUI();
@@ -260,13 +238,10 @@ async function executeAction(actionName, extraData = null) {
         result = await dbAcceptCase(appState.selectedAdmin, extraData);
         break;
       case 'completeCase':
-        result = await dbCompleteCase(appState.selectedAdmin);
-        break;
-      case 'passQueue':
-        result = await dbPassQueue(appState.selectedAdmin);
+        result = await dbCompleteCase(appState.selectedAdmin, extraData);
         break;
       case 'cancelCase':
-        result = await dbCancelCase(appState.selectedAdmin);
+        result = await dbCancelCase(appState.selectedAdmin, extraData);
         break;
       case 'resetAll':
         result = await dbResetAll();
@@ -303,85 +278,116 @@ async function dbCheckIn(adminName) {
 
   if (fetchErr && fetchErr.code !== 'PGRST116') return { success: false, message: fetchErr.message };
 
-  if (adminData && (adminData.status === 'Waiting' || adminData.status === 'Active' || adminData.status === 'Passed')) {
+  if (adminData && adminData.status === 'Online') {
     return { success: true, message: adminName + ' ลงชื่อเข้างานอยู่แล้ว' };
   }
 
-  const { data: queueData } = await db.from('admin_queue').select('queue_num').or('status.eq.Waiting,status.eq.Passed');
-  const maxQueueNum = queueData && queueData.length > 0 ? Math.max(...queueData.map(d => d.queue_num || 0)) : 0;
-  const nextQueueNum = maxQueueNum + 1;
   const now = new Date().toISOString();
 
   if (adminData) {
     const { error } = await db.from('admin_queue').update({
-      status: 'Waiting', queue_num: nextQueueNum, check_in_time: now, last_action_time: now
+      status: 'Online', check_in_time: now, last_action_time: now, current_shop_code: null, current_shop_name: null
     }).eq('name', adminName);
     if (error) return { success: false, message: error.message };
   } else {
     const { error } = await db.from('admin_queue').insert({
-      name: adminName, status: 'Waiting', queue_num: nextQueueNum, check_in_time: now, completed_cases: 0, last_action_time: now
+      name: adminName, status: 'Online', check_in_time: now, completed_cases: 0, last_action_time: now, current_shop_code: null, current_shop_name: null
     });
     if (error) return { success: false, message: error.message };
   }
 
-  await dbCompactQueues();
-
-  const { data: updatedAdmin } = await db.from('admin_queue').select('queue_num').eq('name', adminName).single();
-  const finalQueueNum = updatedAdmin ? updatedAdmin.queue_num : nextQueueNum;
-
-  return { success: true, message: adminName + ' ลงชื่อเข้างานเป็นคิวที่ ' + finalQueueNum };
+  return { success: true, message: adminName + ' ลงชื่อเข้างานสำเร็จ (Online)' };
 }
 
 async function dbCheckOut(adminName) {
   if (!adminName) return { success: false, message: 'กรุณาระบุชื่อ Admin' };
 
-  const { data: adminData } = await db.from('admin_queue').select('queue_num').eq('name', adminName).single();
+  const { data: adminData } = await db.from('admin_queue').select('current_shop_code').eq('name', adminName).single();
   if (!adminData) return { success: false, message: 'ไม่พบรายชื่อ Admin ในระบบ' };
+
+  // ตรวจสอบว่ายังมีงานค้างอยู่หรือไม่
+  let activeShops = [];
+  if (adminData.current_shop_code && adminData.current_shop_code.startsWith('[')) {
+    try {
+      activeShops = JSON.parse(adminData.current_shop_code);
+    } catch (e) {}
+  } else if (adminData.current_shop_code) {
+    activeShops = [adminData.current_shop_code];
+  }
+
+  if (activeShops.length > 0) {
+    return { success: false, message: 'คุณยังมีตรวจงานร้านค้างอยู่ กรุณากด "จบงาน" ให้เรียบร้อยก่อนลงชื่อออกงาน' };
+  }
 
   const now = new Date().toISOString();
 
   const { error } = await db.from('admin_queue').update({
-    status: 'Offline', queue_num: null, last_action_time: now
+    status: 'Offline', current_shop_code: null, current_shop_name: null, last_action_time: now
   }).eq('name', adminName);
   if (error) return { success: false, message: error.message };
-
-  await dbCompactQueues();
 
   return { success: true, message: adminName + ' ลงชื่อออกงานเรียบร้อยแล้ว' };
 }
 
 /**
- * กดรับเคส — ต้องเลือกร้านค้าก่อน
- * @param {string} adminName
- * @param {object} shopData - { shop_code, shop_name }
+ * กดรับเคสร้านค้าแบบเรียลไทม์พร้อมเช็คการทำงานซ้ำซ้อน
  */
 async function dbAcceptCase(adminName, shopData) {
   if (!adminName) return { success: false, message: 'กรุณาระบุชื่อ Admin' };
   if (!shopData) return { success: false, message: 'กรุณาเลือกร้านค้า' };
 
-  const { data: adminData } = await db.from('admin_queue').select('queue_num').eq('name', adminName).single();
+  // ตรวจสอบสถานะการเข้างานของแอดมินคนนี้ก่อน
+  const { data: adminData } = await db.from('admin_queue').select('status, current_shop_code').eq('name', adminName).single();
   if (!adminData) return { success: false, message: 'ไม่พบรายชื่อ Admin ในระบบ' };
+  if (adminData.status !== 'Online') {
+    return { success: false, message: 'กรุณาลงชื่อเข้างาน (Check-In) ก่อนเริ่มรับเคส' };
+  }
 
-  // ดึงคิวที่น้อยที่สุดในระบบที่สถานะรอคิวหรือข้ามคิว
-  const { data: minQueueData, error: minQueueErr } = await db
-    .from('admin_queue')
-    .select('queue_num')
-    .or('status.eq.Waiting,status.eq.Passed')
-    .order('queue_num', { ascending: true })
-    .limit(1)
-    .maybeSingle();
+  // --- ป้องกันการรับงานซ้ำระดับฐานข้อมูล ---
+  const { data: allActiveData, error: activeErr } = await db.from('admin_queue').select('name, current_shop_code').eq('status', 'Online');
+  if (activeErr) return { success: false, message: activeErr.message };
 
-  if (minQueueErr) return { success: false, message: minQueueErr.message };
-  const minQueueNum = minQueueData ? minQueueData.queue_num : null;
+  let existingOwner = null;
+  if (allActiveData) {
+    for (const r of allActiveData) {
+      if (r.current_shop_code) {
+        let activeShops = [];
+        if (r.current_shop_code.startsWith('[')) {
+          try { activeShops = JSON.parse(r.current_shop_code); } catch(e) {}
+        } else {
+          activeShops = [{ shop_code: r.current_shop_code }];
+        }
+        
+        if (activeShops.some(s => s.shop_code === shopData.shop_code)) {
+          existingOwner = r.name;
+          break;
+        }
+      }
+    }
+  }
 
-  if (adminData.queue_num !== minQueueNum) {
-    return { success: false, message: 'ยังไม่ถึงคิวของคุณ (ปัจจุบันคุณเป็นคิวที่ ' + adminData.queue_num + ')' };
+  if (existingOwner) {
+    return { success: false, message: 'ขออภัย! ร้านค้านี้มีผู้ดูแลแล้วคือ คุณ' + existingOwner };
+  }
+
+  // จัดการเพิ่มร้านเข้าฟิลด์ JSON ของตัวเอง
+  let myActiveShops = [];
+  if (adminData.current_shop_code && adminData.current_shop_code.startsWith('[')) {
+    try {
+      myActiveShops = JSON.parse(adminData.current_shop_code);
+    } catch (e) {}
+  } else if (adminData.current_shop_code) {
+    myActiveShops = [{
+      shop_code: adminData.current_shop_code,
+      shop_name: 'ร้านค้า',
+      assigned_at: new Date().toISOString()
+    }];
   }
 
   const now = new Date().toISOString();
   const todayDate = now.split('T')[0];
 
-  // บันทึกเวลาเริ่มทำเคสพร้อมข้อมูลร้านค้า
+  // บันทึกเวลาเริ่มทำเคสใน case_logs
   const { error: logError } = await db.from('case_logs').insert({
     admin_name: adminName,
     start_time: now,
@@ -391,32 +397,57 @@ async function dbAcceptCase(adminName, shopData) {
   });
   if (logError) console.error('Error logging case:', logError);
 
-  // อัปเดตสถานะเป็น Active พร้อมข้อมูลร้านค้า
+  // อัปเดตรายการร้านของแอดมินคนนี้
+  myActiveShops.push({
+    shop_code: shopData.shop_code,
+    shop_name: shopData.shop_name,
+    assigned_at: now
+  });
+
   const { error } = await db.from('admin_queue').update({
-    status: 'Active',
-    queue_num: null,
-    last_action_time: now,
-    current_shop_code: shopData.shop_code,
-    current_shop_name: shopData.shop_name
+    current_shop_code: JSON.stringify(myActiveShops),
+    last_action_time: now
   }).eq('name', adminName);
   if (error) return { success: false, message: error.message };
-
-  await dbCompactQueues();
 
   return { success: true, message: adminName + ' เริ่มรับเคส — ร้าน: ' + shopData.shop_name };
 }
 
-async function dbCompleteCase(adminName) {
+async function dbCompleteCase(adminName, shopCode) {
   if (!adminName) return { success: false, message: 'กรุณาระบุชื่อ Admin' };
+  if (!shopCode) return { success: false, message: 'กรุณาระบุรหัสร้านค้า' };
 
-  const { data: adminData } = await db.from('admin_queue').select('completed_cases').eq('name', adminName).single();
+  const { data: adminData } = await db.from('admin_queue').select('completed_cases, current_shop_code').eq('name', adminName).single();
   if (!adminData) return { success: false, message: 'ไม่พบรายชื่อ Admin ในระบบ' };
+
+  let activeShops = [];
+  if (adminData.current_shop_code && adminData.current_shop_code.startsWith('[')) {
+    try {
+      activeShops = JSON.parse(adminData.current_shop_code);
+    } catch (e) {}
+  } else if (adminData.current_shop_code) {
+    activeShops = [{
+      shop_code: adminData.current_shop_code,
+      shop_name: 'ร้านค้า',
+      assigned_at: new Date().toISOString()
+    }];
+  }
+
+  const targetShop = activeShops.find(s => s.shop_code === shopCode);
+  if (!targetShop) {
+    return { success: false, message: 'ไม่พบข้อมูลร้านค้านี้ในระบบปฏิบัติงานของคุณ' };
+  }
 
   const now = new Date().toISOString();
 
+  // อัปเดตตาราง case_logs ค้นหาเคสร้านนี้ที่ยังไม่จบงาน (end_time is null)
   const { data: logData } = await db.from('case_logs')
-    .select('log_id, start_time').eq('admin_name', adminName)
-    .is('end_time', null).order('start_time', { ascending: false }).limit(1);
+    .select('log_id, start_time')
+    .eq('admin_name', adminName)
+    .eq('shop_code', shopCode)
+    .is('end_time', null)
+    .order('start_time', { ascending: false })
+    .limit(1);
 
   let durationSeconds = 0;
   if (logData && logData.length > 0) {
@@ -425,162 +456,81 @@ async function dbCompleteCase(adminName) {
     await db.from('case_logs').update({ end_time: now, duration_seconds: durationSeconds }).eq('log_id', logData[0].log_id);
   }
 
-  const { data: queueData } = await db.from('admin_queue').select('queue_num').or('status.eq.Waiting,status.eq.Passed');
-  const maxQueueNum = queueData && queueData.length > 0 ? Math.max(...queueData.map(d => d.queue_num || 0)) : 0;
-  const nextQueueNum = maxQueueNum + 1;
+  // เอาชื่อร้านนี้ออกจากรายการงานของแอดมิน
+  const updatedActiveShops = activeShops.filter(s => s.shop_code !== shopCode);
+  const nextShopCodeString = updatedActiveShops.length > 0 ? JSON.stringify(updatedActiveShops) : null;
 
   const { error } = await db.from('admin_queue').update({
-    status: 'Waiting', queue_num: nextQueueNum, check_in_time: now,
+    current_shop_code: nextShopCodeString,
     completed_cases: (adminData.completed_cases || 0) + 1,
-    last_action_time: now,
-    current_shop_code: null, current_shop_name: null
+    last_action_time: now
   }).eq('name', adminName);
   if (error) return { success: false, message: error.message };
 
   return {
     success: true,
-    message: adminName + ' จบเคสเรียบร้อยแล้ว ใช้เวลา ' + formatDurationText(durationSeconds)
+    message: adminName + ' จบเคสร้าน ' + targetShop.shop_name + ' เรียบร้อยแล้ว ใช้เวลา ' + formatDurationText(durationSeconds)
   };
 }
 
-async function dbPassQueue(adminName) {
+async function dbCancelCase(adminName, shopCode) {
   if (!adminName) return { success: false, message: 'กรุณาระบุชื่อ Admin' };
+  if (!shopCode) return { success: false, message: 'กรุณาระบุรหัสร้านค้า' };
 
-  const { data: adminData } = await db.from('admin_queue').select('queue_num').eq('name', adminName).single();
+  const { data: adminData } = await db.from('admin_queue').select('current_shop_code').eq('name', adminName).single();
   if (!adminData) return { success: false, message: 'ไม่พบรายชื่อ Admin ในระบบ' };
 
-  // ดึงคิวที่น้อยที่สุดในระบบที่สถานะรอคิวหรือข้ามคิว
-  const { data: minQueueData, error: minQueueErr } = await db
-    .from('admin_queue')
-    .select('queue_num')
-    .or('status.eq.Waiting,status.eq.Passed')
-    .order('queue_num', { ascending: true })
-    .limit(1)
-    .maybeSingle();
-
-  if (minQueueErr) return { success: false, message: minQueueErr.message };
-  const minQueueNum = minQueueData ? minQueueData.queue_num : null;
-
-  if (adminData.queue_num !== minQueueNum) {
-    return { success: false, message: 'ไม่สามารถกดข้ามคิวได้เนื่องจากคุณไม่ใช่คิวปัจจุบัน' };
+  let activeShops = [];
+  if (adminData.current_shop_code && adminData.current_shop_code.startsWith('[')) {
+    try {
+      activeShops = JSON.parse(adminData.current_shop_code);
+    } catch (e) {}
+  } else if (adminData.current_shop_code) {
+    activeShops = [{
+      shop_code: adminData.current_shop_code,
+      shop_name: 'ร้านค้า',
+      assigned_at: new Date().toISOString()
+    }];
   }
 
-  const now = new Date().toISOString();
+  const targetShop = activeShops.find(s => s.shop_code === shopCode);
+  if (!targetShop) {
+    return { success: false, message: 'ไม่พบข้อมูลร้านค้านี้ในระบบปฏิบัติงานของคุณ' };
+  }
 
-  // ตั้งค่า queue_num เป็นค่ามาก ๆ ชั่วคราวเพื่อให้ไปอยู่ท้ายสุดเมื่อทำ compaction
+  // ลบประวัติเคสนี้ที่ยังไม่จบงานใน case_logs
+  await db.from('case_logs').delete()
+    .eq('admin_name', adminName)
+    .eq('shop_code', shopCode)
+    .is('end_time', null);
+
+  // นำร้านนี้ออกจากรายการงานของแอดมิน
+  const updatedActiveShops = activeShops.filter(s => s.shop_code !== shopCode);
+  const nextShopCodeString = updatedActiveShops.length > 0 ? JSON.stringify(updatedActiveShops) : null;
+
   const { error } = await db.from('admin_queue').update({
-    status: 'Passed', queue_num: 9999, last_action_time: now
+    current_shop_code: nextShopCodeString,
+    last_action_time: new Date().toISOString()
   }).eq('name', adminName);
   if (error) return { success: false, message: error.message };
 
-  await dbCompactQueues();
-
-  return { success: true, message: adminName + ' กดข้ามคิวและขยับไปอยู่ลำดับสุดท้าย' };
-}
-
-/**
- * ยกเลิกเคส (กดรับผิด) — ย้ายแอดมินกลับไปเป็นคิวที่ 1
- */
-async function dbCancelCase(adminName) {
-  if (!adminName) return { success: false, message: 'กรุณาระบุชื่อ Admin' };
-
-  // ใช้ RPC function
-  const { error } = await db.rpc('cancel_active_case', { admin_name_param: adminName });
-
-  if (error) {
-    // fallback: ทำด้วยตัวเอง
-    console.warn('RPC cancel_active_case failed, using fallback:', error);
-
-    // ขยับคิวทุกคนลงไป 1
-    const { data: waitingAdmins } = await db.from('admin_queue')
-      .select('name, queue_num')
-      .or('status.eq.Waiting,status.eq.Passed')
-      .not('queue_num', 'is', null);
-
-    if (waitingAdmins) {
-      for (const admin of waitingAdmins) {
-        await db.from('admin_queue').update({ queue_num: admin.queue_num + 1 }).eq('name', admin.name);
-      }
-    }
-
-    // ตั้งค่าแอดมินกลับเป็น Waiting ที่คิว 1
-    const now = new Date().toISOString();
-    await db.from('admin_queue').update({
-      status: 'Waiting', queue_num: 1,
-      current_shop_code: null, current_shop_name: null,
-      last_action_time: now
-    }).eq('name', adminName);
-
-    // ลบ case log ที่ยังไม่จบ
-    await db.from('case_logs').delete().eq('admin_name', adminName).is('end_time', null);
-  }
-
-  await dbCompactQueues();
-
-  return { success: true, message: adminName + ' ยกเลิกเคสเรียบร้อย ย้ายกลับเป็นคิวที่ 1' };
+  return { success: true, message: adminName + ' ยกเลิกเคสร้าน ' + targetShop.shop_name + ' เรียบร้อยแล้ว (ยอดเคสสะสมไม่ถูกนับ)' };
 }
 
 async function dbResetAll() {
-  const { error } = await db.rpc('reset_all_queues');
-  if (error) {
-    console.warn('RPC reset_all_queues failed, using fallback:', error);
-    const { data: allAdmins } = await db.from('admin_queue').select('name');
-    if (allAdmins) {
-      const now = new Date().toISOString();
-      for (const admin of allAdmins) {
-        await db.from('admin_queue').update({
-          status: 'Offline', queue_num: null, check_in_time: null, completed_cases: 0,
-          last_action_time: now, current_shop_code: null, current_shop_name: null
-        }).eq('name', admin.name);
-      }
+  const { data: allAdmins, error: fetchErr } = await db.from('admin_queue').select('name');
+  if (fetchErr) return { success: false, message: fetchErr.message };
+
+  const now = new Date().toISOString();
+  if (allAdmins) {
+    for (const admin of allAdmins) {
+      await db.from('admin_queue').update({
+        status: 'Offline', queue_num: null, check_in_time: null, completed_cases: 0,
+        last_action_time: now, current_shop_code: null, current_shop_name: null
+      }).eq('name', admin.name);
     }
   }
-  return { success: true, message: 'รีเซ็ตคิวและเคสสะสมประจำวันเรียบร้อยแล้ว' };
-}
-
-async function reorderQueues(deletedQueueNum) {
-  const { error } = await db.rpc('reorder_queues', { deleted_queue_num: deletedQueueNum });
-  if (error) {
-    console.warn('RPC reorder_queues failed, using fallback:', error);
-    const { data } = await db.from('admin_queue')
-      .select('name, queue_num').or('status.eq.Waiting,status.eq.Passed')
-      .gt('queue_num', deletedQueueNum);
-    if (data) {
-      for (const row of data) {
-        await db.from('admin_queue').update({ queue_num: row.queue_num - 1 }).eq('name', row.name);
-      }
-    }
-  }
-}
-
-/**
- * จัดลำดับคิวในฐานข้อมูลใหม่ให้เรียงกันจาก 1 ไปเรื่อย ๆ โดยไม่มีช่องว่าง (Queue Compaction)
- */
-async function dbCompactQueues() {
-  const { data, error } = await db.from('admin_queue')
-    .select('name, queue_num')
-    .or('status.eq.Waiting,status.eq.Passed')
-    .order('queue_num', { ascending: true });
-
-  if (error) {
-    console.error('Error fetching queues for compaction:', error);
-    return { success: false, message: error.message };
-  }
-
-  if (data && data.length > 0) {
-    for (let i = 0; i < data.length; i++) {
-      const expectedQueueNum = i + 1;
-      if (data[i].queue_num !== expectedQueueNum) {
-        const { error: updateErr } = await db.from('admin_queue')
-          .update({ queue_num: expectedQueueNum })
-          .eq('name', data[i].name);
-        if (updateErr) {
-          console.error('Error updating queue_num during compaction:', updateErr);
-        }
-      }
-    }
-  }
-  return { success: true };
+  return { success: true, message: 'รีเซ็ตข้อมูลการทำงานและเคสสะสมประจำวันเรียบร้อยแล้ว' };
 }
 
 async function checkDailyReset() {
@@ -614,19 +564,18 @@ async function checkDailyReset() {
 function updateUI() {
   updateSelectedUserStatus();
 
-  const allWorkingAdmins = [...appState.queueList, ...appState.activeList];
+  const allWorkingAdmins = appState.admins.filter(a => a.status === 'Online');
   dom.noAdminsWarning.style.display = allWorkingAdmins.length === 0 ? 'flex' : 'none';
 
-  updateActiveCard();
-  updateNextQueueCard();
   updateActionPanel();
-  renderQueueTable();
+  renderShopBoard();
+  renderAdminTable();
   renderSummaryDashboard();
 }
 
 function populateAdminSelect() {
   const allAdmins = [];
-  [...appState.queueList, ...appState.activeList, ...appState.offlineList].forEach(a => {
+  appState.admins.forEach(a => {
     if (a.name && !allAdmins.includes(a.name)) allAdmins.push(a.name);
   });
   allAdmins.sort((a, b) => a.localeCompare(b, 'th'));
@@ -657,67 +606,157 @@ function updateSelectedUserStatus() {
   }
 }
 
-function updateActiveCard() {
-  clearInterval(appState.activeTimerInterval);
-
-  if (appState.activeList.length > 0) {
-    const activeAdmin = appState.activeList[0];
-    dom.activeAdminName.textContent = activeAdmin.name;
-    dom.activeTimer.style.display = 'inline-flex';
-
-    // แสดงชื่อร้านค้าที่กำลังรับเคส
-    if (activeAdmin.currentShopName) {
-      dom.activeShopInfo.style.display = 'inline-flex';
-      dom.activeShopText.textContent = activeAdmin.currentShopName;
-    } else {
-      dom.activeShopInfo.style.display = 'none';
+function getShopClaimInfo(shopCode) {
+  for (const admin of appState.admins) {
+    if (admin.status === 'Online' && admin.activeShops) {
+      const activeShop = admin.activeShops.find(s => s.shop_code === shopCode);
+      if (activeShop) {
+        return {
+          adminName: admin.name,
+          assignedAt: activeShop.assigned_at
+        };
+      }
     }
-
-    if (activeAdmin.lastActionTime) {
-      const startTime = new Date(activeAdmin.lastActionTime);
-      appState.activeAdminStartTime = startTime;
-      runLiveTimer();
-      appState.activeTimerInterval = setInterval(runLiveTimer, 1000);
-    } else {
-      dom.timerText.textContent = "00:00";
-    }
-  } else {
-    dom.activeAdminName.textContent = "- ไม่มีแอดมินรับเคส -";
-    dom.activeTimer.style.display = 'none';
-    dom.activeShopInfo.style.display = 'none';
-    dom.timerText.textContent = "00:00";
   }
+  return null;
 }
 
-function runLiveTimer() {
-  if (!appState.activeAdminStartTime) return;
-  const now = new Date();
-  const diffMs = now.getTime() - appState.activeAdminStartTime.getTime();
-  if (diffMs < 0) { dom.timerText.textContent = "00:00"; return; }
-  const totalSeconds = Math.floor(diffMs / 1000);
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  const pad = (num) => String(num).padStart(2, '0');
-  dom.timerText.textContent = `${pad(minutes)}:${pad(seconds)}`;
-}
+function renderShopBoard() {
+  if (!dom.shopBoardGrid) return;
+  dom.shopBoardGrid.innerHTML = '';
 
-function updateNextQueueCard() {
-  if (appState.queueList.length > 0) {
-    const nextAdmin = appState.queueList[0];
-    dom.nextAdminName.textContent = nextAdmin.name;
-    if (appState.selectedAdmin === nextAdmin.name) {
-      dom.nextAdminSub.innerHTML = '<strong style="color:var(--color-waiting);"><i class="fa-solid fa-bell"></i> ถึงคิวของคุณแล้ว! กดรับเคสด้านล่าง</strong>';
-    } else {
-      dom.nextAdminSub.textContent = "พร้อมสแตนด์บายรับเคสลูกค้าถัดไป";
-    }
-  } else {
-    dom.nextAdminName.textContent = "- ไม่มีคิวรอ -";
-    dom.nextAdminSub.textContent = "ไม่มีแอดมินเช็คอินรอคิว";
+  const query = appState.searchQuery || '';
+  const filtered = query
+    ? appState.shops.filter(s =>
+        s.shop_name.toLowerCase().includes(query) ||
+        s.shop_code.toLowerCase().includes(query)
+      )
+    : appState.shops;
+
+  if (filtered.length === 0) {
+    dom.shopBoardGrid.innerHTML = '<div class="no-data"><i class="fa-solid fa-magnifying-glass"></i> ไม่พบร้านค้าที่ตรงกับคำค้นหา</div>';
+    return;
   }
+
+  const currentAdminData = appState.selectedAdmin ? findAdminData(appState.selectedAdmin) : null;
+  const isCurrentOnline = currentAdminData && currentAdminData.status === 'Online';
+
+  filtered.forEach(shop => {
+    const card = document.createElement('div');
+    card.className = 'shop-card card';
+    card.dataset.shopCode = shop.shop_code;
+
+    const claimInfo = getShopClaimInfo(shop.shop_code);
+
+    let html = `
+      <div class="shop-card-header">
+        <span class="shop-code">${shop.shop_code}</span>
+        <span class="shop-name-title">${shop.shop_name}</span>
+      </div>
+    `;
+
+    if (!claimInfo) {
+      // ร้านค้ายังไม่มีคนรับงาน
+      html += `
+        <div class="shop-card-body free">
+          <span class="badge-free"><i class="fa-solid fa-circle-check"></i> ว่าง</span>
+        </div>
+        <div class="shop-card-footer">
+      `;
+      if (isCurrentOnline) {
+        html += `
+          <button class="btn-claim-shop" onclick="handleClaimShop('${shop.shop_code}', '${shop.shop_name.replace(/'/g, "\\'")}')">
+            <i class="fa-solid fa-hand-holding-hand"></i> กดรับเคส
+          </button>
+        `;
+      } else {
+        html += `
+          <button class="btn-claim-shop disabled" disabled title="กรุณาลงชื่อเข้างานก่อน">
+            <i class="fa-solid fa-lock"></i> ต้องลงชื่อเข้างานก่อน
+          </button>
+        `;
+      }
+      html += `</div>`;
+    } else {
+      // ร้านค้ามีคนรับงานแล้ว
+      const isOwner = appState.selectedAdmin === claimInfo.adminName;
+      card.classList.add(isOwner ? 'owned-shop' : 'occupied-shop');
+
+      const timeDiff = Math.round((Date.now() - new Date(claimInfo.assignedAt).getTime()) / 1000);
+      const timerStr = formatSecondsToTimer(timeDiff >= 0 ? timeDiff : 0);
+
+      html += `
+        <div class="shop-card-body occupied">
+          <span class="badge-occupied">
+            <i class="fa-solid fa-user-clock"></i> ${claimInfo.adminName}
+          </span>
+          <div class="live-timer-wrapper">
+            <i class="fa-regular fa-clock"></i>
+            <span class="live-shop-timer" data-assigned-at="${claimInfo.assignedAt}">${timerStr}</span>
+          </div>
+        </div>
+        <div class="shop-card-footer">
+      `;
+
+      if (isOwner) {
+        html += `
+          <div class="owner-actions">
+            <button class="btn-complete-shop" onclick="handleCompleteShop('${shop.shop_code}', '${shop.shop_name.replace(/'/g, "\\'")}')">
+              <i class="fa-solid fa-check-double"></i> จบงาน
+            </button>
+            <button class="btn-cancel-shop" onclick="handleCancelShop('${shop.shop_code}', '${shop.shop_name.replace(/'/g, "\\'")}')" title="ยกเลิกรับเคส">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </div>
+        `;
+      } else {
+        html += `
+          <div class="shop-card-blocked-msg">
+            <i class="fa-solid fa-ban"></i> มีผู้ดูแลแล้ว
+          </div>
+        `;
+      }
+      html += `</div>`;
+    }
+
+    card.innerHTML = html;
+    dom.shopBoardGrid.appendChild(card);
+  });
 }
+
+window.handleClaimShop = async (shopCode, shopName) => {
+  executeAction('acceptCase', { shop_code: shopCode, shop_name: shopName });
+};
+
+window.handleCompleteShop = async (shopCode, shopName) => {
+  const isConfirm = await showCustomConfirm(
+    `คุณต้องการจบงานร้านค้า "${shopName}" ใช่หรือไม่?`,
+    'ยืนยันการจบงาน',
+    'modal-icon-success',
+    'fa-circle-check'
+  );
+  if (isConfirm) {
+    executeAction('completeCase', shopCode);
+  }
+};
+
+window.handleCancelShop = async (shopCode, shopName) => {
+  const isConfirm = await showCustomConfirm(
+    `คุณต้องการยกเลิกรับงานร้านค้า "${shopName}" ใช่หรือไม่?\n(เวลาและสถิติประวัติงานชิ้นนี้จะไม่ถูกบันทึก)`,
+    'ยืนยันการยกเลิกเคส',
+    'modal-icon-danger',
+    'fa-circle-exclamation'
+  );
+  if (isConfirm) {
+    executeAction('cancelCase', shopCode);
+  }
+};
 
 function updateActionPanel() {
-  if (!appState.selectedAdmin) { dom.actionPanel.style.display = 'none'; return; }
+  if (!appState.selectedAdmin) {
+    dom.actionPanel.style.display = 'none';
+    return;
+  }
 
   dom.actionPanel.style.display = 'block';
   dom.actionUserName.textContent = appState.selectedAdmin;
@@ -725,92 +764,85 @@ function updateActionPanel() {
   const adminData = findAdminData(appState.selectedAdmin);
   const status = (adminData && adminData.status) ? adminData.status : "Offline";
 
-  // ซ่อนปุ่มทั้งหมด
   dom.btnCheckin.style.display = 'none';
   dom.btnCheckout.style.display = 'none';
-  dom.btnAccept.style.display = 'none';
-  dom.btnPass.style.display = 'none';
-  dom.btnComplete.style.display = 'none';
-  dom.btnCancel.style.display = 'none';
 
   if (status === "Offline") {
     dom.btnCheckin.style.display = 'inline-flex';
-  } else if (status === "Waiting" || status === "Passed") {
+  } else {
     dom.btnCheckout.style.display = 'inline-flex';
-    
-    // ตรวจสอบว่าแอดมินคนนี้เป็นคิวแรกสุดในรายการที่รอรับงานหรือไม่ (ป้องกันปัญหาเลขคิวขาด/มีช่องว่าง)
-    const isFirstInQueue = appState.queueList.length > 0 && appState.queueList[0].name === appState.selectedAdmin;
-    if (isFirstInQueue) {
-      dom.btnAccept.style.display = 'inline-flex';
-      dom.btnPass.style.display = 'inline-flex';
-      dom.btnAccept.classList.add('pulse');
-    } else {
-      dom.btnAccept.classList.remove('pulse');
-    }
-  } else if (status === "Active") {
-    dom.btnComplete.style.display = 'inline-flex';
-    dom.btnCancel.style.display = 'inline-flex'; // แสดงปุ่มยกเลิกเคส
   }
 }
 
-function renderQueueTable() {
-  dom.queueTableBody.innerHTML = '';
-  const tableData = [];
+function renderAdminTable() {
+  if (!dom.adminTableBody) return;
+  dom.adminTableBody.innerHTML = '';
 
-  appState.activeList.forEach(admin => {
-    tableData.push({ ...admin, isCurrent: appState.selectedAdmin === admin.name });
-  });
-  appState.queueList.forEach(admin => {
-    tableData.push({ ...admin, isCurrent: appState.selectedAdmin === admin.name });
-  });
-  appState.offlineList.forEach(admin => {
-    tableData.push({ ...admin, isCurrent: appState.selectedAdmin === admin.name });
+  // เรียงลำดับแอดมิน: ออนไลน์ก่อน จากนั้นเรียงชื่อตามตัวอักษรไทย
+  const sortedAdmins = [...appState.admins].sort((a, b) => {
+    if (a.status === 'Online' && b.status !== 'Online') return -1;
+    if (a.status !== 'Online' && b.status === 'Online') return 1;
+    return a.name.localeCompare(b.name, 'th');
   });
 
-  if (tableData.length === 0) {
-    dom.queueTableBody.innerHTML = '<tr><td colspan="4" class="no-data">ไม่พบรายชื่อในระบบฐานข้อมูล</td></tr>';
+  if (sortedAdmins.length === 0) {
+    dom.adminTableBody.innerHTML = '<tr><td colspan="4" class="no-data">ยังไม่มีข้อมูลแอดมินในระบบ</td></tr>';
     return;
   }
 
-  tableData.forEach(admin => {
+  sortedAdmins.forEach(admin => {
     const tr = document.createElement('tr');
-    if (admin.isCurrent) tr.className = 'my-row';
-
-    let queueTd = '';
-    if (admin.status === "Active") {
-      queueTd = '<td style="text-align: center;"><i class="fa-solid fa-headset" style="color:var(--color-active);"></i></td>';
-    } else if (admin.queueNum !== null && (admin.status === "Waiting" || admin.status === "Passed")) {
-      const isFirst = admin.queueNum === 1;
-      queueTd = `<td><span class="queue-badge ${isFirst ? 'first-badge' : ''}">${admin.queueNum}</span></td>`;
-    } else {
-      queueTd = '<td style="text-align: center; color:var(--text-muted);">-</td>';
+    if (admin.name === appState.selectedAdmin) {
+      tr.className = 'my-row';
     }
 
-    const nameText = admin.isCurrent ? `<strong>${admin.name} (คุณ)</strong>` : admin.name;
-    // แสดงชื่อร้านค้าถ้ามีสถานะ Active
-    let shopHtml = '';
-    if (admin.status === "Active" && admin.currentShopName) {
-      shopHtml = `<br><span style="font-size:0.7rem;color:var(--text-muted);"><i class="fa-solid fa-store"></i> ${admin.currentShopName}</span>`;
-    }
-    const nameTd = `<td>${nameText}${shopHtml}</td>`;
+    // 1. รายชื่อแอดมิน
+    const isCurrent = admin.name === appState.selectedAdmin;
+    const nameText = isCurrent ? `<strong>${admin.name} (คุณ)</strong>` : admin.name;
+    const nameTd = `<td>${nameText}</td>`;
 
+    // 2. สถานะ
     const statusText = translateStatus(admin.status);
     const statusBadgeClass = getStatusBadgeClass(admin.status);
     const statusTd = `<td><span class="status-badge ${statusBadgeClass}">${statusText}</span></td>`;
-    const casesTd = `<td><span class="cases-count">${admin.completedCases || 0}</span></td>`;
 
-    tr.innerHTML = queueTd + nameTd + statusTd + casesTd;
-    dom.queueTableBody.appendChild(tr);
+    // 3. ร้านค้าที่ดูแลอยู่
+    let shopsHtml = '';
+    if (admin.status === 'Online' && admin.activeShops && admin.activeShops.length > 0) {
+      shopsHtml = '<div class="admin-shops-container">';
+      admin.activeShops.forEach(shop => {
+        const timeDiff = Math.round((Date.now() - new Date(shop.assigned_at).getTime()) / 1000);
+        const timerStr = formatSecondsToTimer(timeDiff >= 0 ? timeDiff : 0);
+        shopsHtml += `
+          <div class="admin-shop-item-badge">
+            <span class="admin-shop-name" title="${shop.shop_name}">${shop.shop_code}</span>
+            <span class="admin-table-live-timer" data-assigned-at="${shop.assigned_at}">${timerStr}</span>
+          </div>
+        `;
+      });
+      shopsHtml += '</div>';
+    } else if (admin.status === 'Online') {
+      shopsHtml = '<span class="no-shops-text"><i class="fa-solid fa-mug-hot"></i> ว่าง (รอรับเคส)</span>';
+    } else {
+      shopsHtml = '<span class="offline-text">-</span>';
+    }
+    const shopsTd = `<td>${shopsHtml}</td>`;
+
+    // 4. เคสวันนี้
+    const casesTd = `<td style="text-align: center;"><span class="cases-count">${admin.completedCases || 0}</span></td>`;
+
+    tr.innerHTML = nameTd + statusTd + shopsTd + casesTd;
+    dom.adminTableBody.appendChild(tr);
   });
 }
 
 function renderSummaryDashboard() {
   dom.adminsStatsList.innerHTML = '';
-  const allAdmins = [...appState.activeList, ...appState.queueList, ...appState.offlineList];
 
   let totalCases = 0;
   let activeAdminsCount = 0;
-  allAdmins.forEach(admin => {
+
+  appState.admins.forEach(admin => {
     totalCases += admin.completedCases || 0;
     if ((admin.status || "Offline") !== "Offline") activeAdminsCount++;
   });
@@ -818,38 +850,33 @@ function renderSummaryDashboard() {
   dom.totalCasesToday.textContent = totalCases;
   dom.totalAdminsActive.textContent = activeAdminsCount;
 
-  const sortedStats = [...allAdmins].sort((a, b) => (b.completedCases || 0) - (a.completedCases || 0));
+  // เรียงแอดมินที่มีเคสมากที่สุดลงไป
+  const sortedStats = [...appState.admins].sort((a, b) => (b.completedCases || 0) - (a.completedCases || 0));
   sortedStats.forEach(admin => {
     const row = document.createElement('div');
     row.className = 'stat-row';
+    
     const nameSpan = document.createElement('span');
     nameSpan.className = 'stat-row-name';
     nameSpan.innerHTML = admin.name === appState.selectedAdmin ? `<strong>${admin.name} (คุณ)</strong>` : admin.name;
+    
     const valSpan = document.createElement('span');
     valSpan.className = 'stat-row-val';
     valSpan.textContent = `${admin.completedCases || 0} เคส`;
+    
     row.appendChild(nameSpan);
     row.appendChild(valSpan);
     dom.adminsStatsList.appendChild(row);
   });
 }
 
-// ==========================================================================
-// Helper Functions
-// ==========================================================================
 function findAdminData(adminName) {
-  let found = appState.activeList.find(a => a.name === adminName);
-  if (found) return found;
-  found = appState.queueList.find(a => a.name === adminName);
-  if (found) return found;
-  return appState.offlineList.find(a => a.name === adminName);
+  return appState.admins.find(a => a.name === adminName);
 }
 
 function translateStatus(status) {
   switch (status) {
-    case "Waiting": return "รอคิว";
-    case "Active": return "รับงานอยู่";
-    case "Passed": return "ข้ามคิว";
+    case "Online": return "Online";
     case "Offline": return "Offline";
     default: return status || "Offline";
   }
@@ -857,13 +884,47 @@ function translateStatus(status) {
 
 function getStatusBadgeClass(status) {
   switch (status) {
-    case "Waiting": return "status-waiting";
-    case "Active": return "status-active";
-    case "Passed": return "status-passed";
+    case "Online": return "status-active";
     case "Offline": return "status-offline";
     default: return "status-offline";
   }
 }
+
+function updateLiveTimers() {
+  const timerElements = document.querySelectorAll('.live-shop-timer');
+  timerElements.forEach(el => {
+    const assignedAt = el.getAttribute('data-assigned-at');
+    if (assignedAt) {
+      const timeDiff = Math.round((Date.now() - new Date(assignedAt).getTime()) / 1000);
+      el.textContent = formatSecondsToTimer(timeDiff >= 0 ? timeDiff : 0);
+    }
+  });
+}
+
+function updateAdminTableTimers() {
+  const timerElements = document.querySelectorAll('.admin-table-live-timer');
+  timerElements.forEach(el => {
+    const assignedAt = el.getAttribute('data-assigned-at');
+    if (assignedAt) {
+      const timeDiff = Math.round((Date.now() - new Date(assignedAt).getTime()) / 1000);
+      el.textContent = formatSecondsToTimer(timeDiff >= 0 ? timeDiff : 0);
+    }
+  });
+}
+
+function formatSecondsToTimer(totalSeconds) {
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  const pad = (num) => String(num).padStart(2, '0');
+
+  if (hours > 0) {
+    return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+  }
+  return `${pad(minutes)}:${pad(seconds)}`;
+}
+
 
 function showLoading(isLoading) {
   dom.loadingOverlay.style.opacity = isLoading ? '1' : '0';
