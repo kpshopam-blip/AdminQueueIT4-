@@ -18,6 +18,7 @@ let appState = {
   selectedAdmin: null,
   shops: [],        // รายชื่อร้านค้าทั้งหมดจาก Supabase
   searchQuery: "",  // คำค้นหาร้านค้าบนบอร์ด
+  boardFilter: "all", // ฟิลเตอร์กระดาน (all, free, occupied, mine)
   liveInterval: null // ตัวแปรสำหรับ setInterval
 };
 
@@ -34,6 +35,8 @@ const dom = {
   btnCheckout: document.getElementById('btn-checkout'),
   shopBoardSearchInput: document.getElementById('shop-board-search-input'),
   shopBoardGrid: document.getElementById('shop-board-grid'),
+  shopBoardFilters: document.getElementById('shop-board-filters'),
+  tabMyShops: document.getElementById('tab-my-shops'),
   adminTableBody: document.getElementById('admin-table-body'),
   totalCasesToday: document.getElementById('total-cases-today'),
   totalAdminsActive: document.getElementById('total-admins-active'),
@@ -93,6 +96,17 @@ function setupEventListeners() {
   if (dom.shopBoardSearchInput) {
     dom.shopBoardSearchInput.addEventListener('input', (e) => {
       appState.searchQuery = e.target.value.trim().toLowerCase();
+      renderShopBoard();
+    });
+  }
+
+  if (dom.shopBoardFilters) {
+    dom.shopBoardFilters.addEventListener('click', (e) => {
+      const tab = e.target.closest('.filter-tab');
+      if (!tab) return;
+      dom.shopBoardFilters.querySelectorAll('.filter-tab').forEach(b => b.classList.remove('active'));
+      tab.classList.add('active');
+      appState.boardFilter = tab.dataset.filter;
       renderShopBoard();
     });
   }
@@ -626,20 +640,51 @@ function renderShopBoard() {
   dom.shopBoardGrid.innerHTML = '';
 
   const query = appState.searchQuery || '';
-  const filtered = query
+  let filtered = query
     ? appState.shops.filter(s =>
         s.shop_name.toLowerCase().includes(query) ||
         s.shop_code.toLowerCase().includes(query)
       )
     : appState.shops;
 
-  if (filtered.length === 0) {
-    dom.shopBoardGrid.innerHTML = '<div class="no-data"><i class="fa-solid fa-magnifying-glass"></i> ไม่พบร้านค้าที่ตรงกับคำค้นหา</div>';
-    return;
-  }
-
   const currentAdminData = appState.selectedAdmin ? findAdminData(appState.selectedAdmin) : null;
   const isCurrentOnline = currentAdminData && currentAdminData.status === 'Online';
+
+  // ซ่อน/แสดงแท็บ "งานของฉัน"
+  if (dom.tabMyShops) {
+    if (isCurrentOnline) {
+      dom.tabMyShops.style.display = 'inline-flex';
+    } else {
+      dom.tabMyShops.style.display = 'none';
+      if (appState.boardFilter === 'mine') {
+        appState.boardFilter = 'all';
+        if (dom.shopBoardFilters) {
+          dom.shopBoardFilters.querySelectorAll('.filter-tab').forEach(b => {
+            if (b.dataset.filter === 'all') b.classList.add('active');
+            else b.classList.remove('active');
+          });
+        }
+      }
+    }
+  }
+
+  // กรองตามหมวดหมู่แท็บที่เลือก
+  filtered = filtered.filter(shop => {
+    const claimInfo = getShopClaimInfo(shop.shop_code);
+    if (appState.boardFilter === 'free') {
+      return !claimInfo;
+    } else if (appState.boardFilter === 'occupied') {
+      return !!claimInfo;
+    } else if (appState.boardFilter === 'mine') {
+      return claimInfo && claimInfo.adminName === appState.selectedAdmin;
+    }
+    return true; // all
+  });
+
+  if (filtered.length === 0) {
+    dom.shopBoardGrid.innerHTML = '<div class="no-data"><i class="fa-solid fa-magnifying-glass"></i> ไม่พบร้านค้าที่ตรงกับตัวกรองหรือคำค้นหา</div>';
+    return;
+  }
 
   filtered.forEach(shop => {
     const card = document.createElement('div');
